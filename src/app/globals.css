@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0f0f14;
+  --foreground: #e4e4e7;
+  --card: #1a1a24;
+  --card-hover: #22222e;
+  --border: #2a2a3a;
+  --muted: #71717a;
+  --accent-purple: #a78bfa;
+  --accent-purple-dim: #7c5cbf;
+  --accent-blue: #60a5fa;
+  --accent-green: #4ade80;
+  --accent-orange: #fb923c;
+  --danger: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent-purple);
+  --color-accent-dim: var(--accent-purple-dim);
+  --color-blue: var(--accent-blue);
+  --color-green: var(--accent-green);
+  --color-orange: var(--accent-orange);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Safe area for mobile bottom nav */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
