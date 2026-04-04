@@ -69,6 +69,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
             messages: chatHistoryRef.current,
             context: { week_start_date: weekStartDate },
           }),
+          signal: AbortSignal.timeout(120_000),
         });
 
         if (!res.ok || !res.body) {

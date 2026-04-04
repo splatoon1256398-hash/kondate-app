@@ -11,6 +11,9 @@ import {
 import type { ChatRequest, SSEEvent } from "@/types/meal-plan";
 import type { Content, Part } from "@google/genai";
 
+// Gemini 2.5 Flash (thinking model) + FC can take >60s
+export const maxDuration = 120;
+
 function sseEncode(event: SSEEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
@@ -49,18 +52,23 @@ export async function POST(request: NextRequest) {
           controller.enqueue(encoder.encode(sseEncode(event)));
         }
 
+        // Send initial comment to keep connection alive
+        controller.enqueue(encoder.encode(": connected\n\n"));
+
         try {
           // Build conversation contents for multi-turn
           const contents = convertMessages(messages);
 
           // Call Gemini (non-streaming for FC support)
+          const geminiConfig = {
+            systemInstruction: systemPrompt,
+            tools: [{ functionDeclarations }],
+            thinkingConfig: { thinkingBudget: 2048 },
+          };
           const response = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
             contents,
-            config: {
-              systemInstruction: systemPrompt,
-              tools: [{ functionDeclarations }],
-            },
+            config: geminiConfig,
           });
 
           const candidate = response.candidates?.[0];
@@ -136,10 +144,7 @@ export async function POST(request: NextRequest) {
             const followUp = await gemini.models.generateContent({
               model: "gemini-2.5-flash",
               contents: pendingFcContents,
-              config: {
-                systemInstruction: systemPrompt,
-                tools: [{ functionDeclarations }],
-              },
+              config: geminiConfig,
             });
 
             const followCandidate = followUp.candidates?.[0];
