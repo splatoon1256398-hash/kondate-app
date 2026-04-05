@@ -13,12 +13,17 @@ import type {
 } from "@/types/shopping-list";
 import ShoppingItem from "./ShoppingItem";
 import ShoppingAddDialog from "./ShoppingAddDialog";
+import ShoppingComplete from "./ShoppingComplete";
 
 const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: number }> = {
-  meat: { label: "肉・魚", emoji: "\ud83e\udd69", order: 0 },
-  vegetable: { label: "野菜", emoji: "\ud83e\udd2c", order: 1 },
-  seasoning: { label: "調味料", emoji: "\ud83e\uddc2", order: 2 },
-  other: { label: "その他", emoji: "\ud83d\udce6", order: 3 },
+  meat_fish:  { label: "肉・魚コーナー", emoji: "\ud83e\udd69", order: 0 },
+  vegetable:  { label: "野菜・果物",     emoji: "\ud83e\udd2c", order: 1 },
+  tofu_natto: { label: "豆腐・練り物",   emoji: "\ud83e\udeb6", order: 2 },
+  dairy_egg:  { label: "乳製品・卵",     emoji: "\ud83e\udd5a", order: 3 },
+  dry_goods:  { label: "乾物・缶詰",     emoji: "\ud83e\udd6b", order: 4 },
+  seasoning:  { label: "調味料",         emoji: "\ud83e\uddc2", order: 5 },
+  frozen:     { label: "冷凍食品",       emoji: "\ud83e\uddca", order: 6 },
+  other:      { label: "その他",         emoji: "\ud83d\udce6", order: 7 },
 };
 
 export default function ShoppingList() {
@@ -249,6 +254,16 @@ export default function ShoppingList() {
       <div className="mt-4 px-3">
         <ShoppingAddDialog onAdd={handleAdd} />
       </div>
+
+      {/* Complete button - show when most items are checked */}
+      {totalItems > 0 && checkedItems >= Math.ceil(totalItems * 0.5) && (
+        <div className="mt-3 px-3">
+          <ShoppingComplete
+            shoppingListId={list.id}
+            onComplete={fetchList}
+          />
+        </div>
+      )}
     </div>
   );
 }

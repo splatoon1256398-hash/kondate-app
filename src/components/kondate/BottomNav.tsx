@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ShoppingCart, Sparkles, BookOpen, Settings } from "lucide-react";
+import { CalendarDays, ShoppingCart, Sparkles, BookOpen, Refrigerator } from "lucide-react";
 
 const tabs = [
   { href: "/menu", label: "献立", icon: CalendarDays },
   { href: "/shopping", label: "買い物", icon: ShoppingCart },
   { href: "/ai", label: "AI提案", icon: Sparkles },
+  { href: "/pantry", label: "冷蔵庫", icon: Refrigerator },
   { href: "/recipes", label: "レシピ", icon: BookOpen },
-  { href: "/settings", label: "設定", icon: Settings },
 ] as const;
 
 export default function BottomNav() {

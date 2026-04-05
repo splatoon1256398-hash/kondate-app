@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, ChefHat, Flame, Plus, Filter, Download } from "lucide-react";
+import { Search, ChefHat, Flame, Plus, Filter, Download, Heart } from "lucide-react";
 import Link from "next/link";
 import type { RecipeListItem, CookMethod } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
@@ -25,6 +25,7 @@ export default function RecipeList() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [cookMethodFilter, setCookMethodFilter] = useState<CookMethod | "all">("all");
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -34,6 +35,7 @@ export default function RecipeList() {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (cookMethodFilter !== "all") params.set("cook_method", cookMethodFilter);
+      if (favoriteOnly) params.set("is_favorite", "true");
       params.set("limit", "100");
 
       const res = await fetch(`/api/recipes?${params}`);
@@ -44,7 +46,7 @@ export default function RecipeList() {
     } finally {
       setLoading(false);
     }
-  }, [query, cookMethodFilter]);
+  }, [query, cookMethodFilter, favoriteOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchRecipes, 300);
@@ -100,6 +102,18 @@ export default function RecipeList() {
           </div>
           <button
             type="button"
+            onClick={() => setFavoriteOnly(!favoriteOnly)}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
+              favoriteOnly
+                ? "border-danger bg-danger/10 text-danger"
+                : "border-border text-muted hover:text-foreground"
+            }`}
+            aria-label="殿堂入りのみ"
+          >
+            <Heart size={16} fill={favoriteOnly ? "currentColor" : "none"} />
+          </button>
+          <button
+            type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
               cookMethodFilter !== "all"
@@ -152,6 +166,9 @@ export default function RecipeList() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-sm font-medium">{recipe.title}</span>
+                  {recipe.is_favorite && (
+                    <Heart size={12} className="shrink-0 fill-danger text-danger" />
+                  )}
                   {recipe.cook_method === "hotcook" && (
                     <ChefHat size={14} className="shrink-0 text-accent" />
                   )}

@@ -9,6 +9,7 @@ export type RecipeListItem = {
   prep_time_min: number | null;
   cook_time_min: number | null;
   source: RecipeSource;
+  is_favorite: boolean;
 };
 
 export type RecipeIngredient = {
@@ -37,6 +38,7 @@ export type RecipeDetail = {
   prep_time_min: number | null;
   cook_time_min: number | null;
   source: RecipeSource;
+  is_favorite: boolean;
   ingredients: RecipeIngredient[];
   steps: RecipeStep[];
 };

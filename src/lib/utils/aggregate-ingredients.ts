@@ -54,12 +54,20 @@ export function aggregateIngredients(slots: SlotWithRecipe[]): AggregatedItem[] 
 }
 
 function guessCategory(name: string): string {
-  const meat = ["肉", "豚", "鶏", "牛", "ひき肉", "ベーコン", "ウインナー", "鮭", "魚", "えび", "ツナ"];
-  const vegetable = ["大根", "玉ねぎ", "にんじん", "キャベツ", "もやし", "ほうれん草", "白菜", "じゃがいも", "ネギ", "きのこ", "しめじ", "トマト"];
-  const seasoning = ["醤油", "みりん", "酒", "砂糖", "塩", "胡椒", "味噌", "酢", "油", "バター", "だし", "コンソメ", "ケチャップ", "マヨネーズ"];
+  const meatFish = ["肉", "豚", "鶏", "牛", "ひき肉", "ベーコン", "ウインナー", "ソーセージ", "ハム", "鮭", "魚", "えび", "いか", "たこ", "しらす", "ツナ", "さば", "あじ", "ぶり", "まぐろ", "かつお"];
+  const dairyEgg = ["卵", "たまご", "牛乳", "チーズ", "ヨーグルト", "生クリーム"];
+  const tofuNatto = ["豆腐", "納豆", "油揚げ", "厚揚げ", "こんにゃく", "はんぺん", "ちくわ", "かまぼこ", "練り物"];
+  const vegetable = ["大根", "玉ねぎ", "にんじん", "キャベツ", "もやし", "ほうれん草", "白菜", "じゃがいも", "ネギ", "ねぎ", "長ねぎ", "きのこ", "しめじ", "えのき", "エリンギ", "まいたけ", "トマト", "ピーマン", "なす", "かぼちゃ", "ブロッコリー", "小松菜", "レタス", "きゅうり", "ごぼう", "れんこん", "さつまいも", "里芋", "にら", "水菜", "春菊", "セロリ", "アスパラ", "オクラ", "ズッキーニ", "パプリカ", "しょうが", "にんにく"];
+  const seasoning = ["醤油", "しょうゆ", "みりん", "酒", "砂糖", "塩", "胡椒", "こしょう", "味噌", "みそ", "酢", "油", "バター", "だし", "コンソメ", "ケチャップ", "マヨネーズ", "ソース", "ルー", "めんつゆ", "ポン酢", "オイスターソース", "ナンプラー", "豆板醤", "甜麺醤", "カレー粉", "ごま油", "オリーブオイル", "料理酒"];
+  const dryGoods = ["パスタ", "うどん", "そば", "そうめん", "米", "パン粉", "小麦粉", "片栗粉", "ツナ缶", "トマト缶", "春雨", "乾燥わかめ", "海苔", "ごま", "鰹節", "昆布", "切り干し大根", "高野豆腐", "マカロニ"];
+  const frozen = ["冷凍"];
 
-  if (meat.some(m => name.includes(m))) return "meat";
+  if (meatFish.some(m => name.includes(m))) return "meat_fish";
+  if (dairyEgg.some(m => name.includes(m))) return "dairy_egg";
+  if (tofuNatto.some(m => name.includes(m))) return "tofu_natto";
   if (vegetable.some(v => name.includes(v))) return "vegetable";
   if (seasoning.some(s => name.includes(s))) return "seasoning";
+  if (dryGoods.some(d => name.includes(d))) return "dry_goods";
+  if (frozen.some(f => name.includes(f))) return "frozen";
   return "other";
 }

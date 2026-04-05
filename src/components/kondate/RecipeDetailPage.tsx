@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChefHat, Clock, Flame, ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ChefHat, Clock, Flame, ArrowLeft, Pencil, Trash2, Heart, Play } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import RatingStars from "./RatingStars";
 
 type Props = {
   recipeId: string;
@@ -81,7 +83,12 @@ export default function RecipeDetailPage({ recipeId }: Props) {
         <button type="button" onClick={() => router.push("/recipes")} className="text-muted hover:text-foreground">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="flex-1 text-base font-bold leading-tight">{recipe.title}</h1>
+        <h1 className="flex-1 text-base font-bold leading-tight">
+          {recipe.is_favorite && (
+            <Heart size={14} className="mr-1 inline fill-danger text-danger" />
+          )}
+          {recipe.title}
+        </h1>
         <button
           type="button"
           onClick={() => router.push(`/recipes/${recipeId}/edit`)}
@@ -197,7 +204,18 @@ export default function RecipeDetailPage({ recipeId }: Props) {
 
       {/* Steps */}
       <section className="mt-5 px-4">
-        <h2 className="mb-2 text-sm font-bold text-accent">手順</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-accent">手順</h2>
+          {recipe.steps.length > 0 && (
+            <Link
+              href={`/cooking/${recipeId}`}
+              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-background transition-opacity active:opacity-80"
+            >
+              <Play size={12} />
+              クッキングモード
+            </Link>
+          )}
+        </div>
         {recipe.steps.length > 0 ? (
           <ol className="space-y-3">
             {recipe.steps.map((step) => (
@@ -216,6 +234,13 @@ export default function RecipeDetailPage({ recipeId }: Props) {
           <p className="text-xs text-muted">手順が登録されていません</p>
         )}
       </section>
+
+      {/* Rating section */}
+      <RatingStars
+        recipeId={recipeId}
+        isFavorite={recipe.is_favorite}
+        onFavoriteChange={(val) => setRecipe((prev) => prev ? { ...prev, is_favorite: val } : prev)}
+      />
     </div>
   );
 }

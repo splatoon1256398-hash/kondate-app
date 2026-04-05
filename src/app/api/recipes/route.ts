@@ -19,13 +19,18 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("recipes")
-      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source");
+      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite");
 
     if (q) {
       query = query.ilike("title", `%${q}%`);
     }
     if (cookMethod) {
       query = query.eq("cook_method", cookMethod);
+    }
+
+    const isFavorite = searchParams.get("is_favorite");
+    if (isFavorite === "true") {
+      query = query.eq("is_favorite", true);
     }
 
     const { data, error } = await query

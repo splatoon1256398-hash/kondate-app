@@ -10,9 +10,13 @@ type Props = {
 };
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
-  { value: "meat", label: "肉・魚" },
+  { value: "meat_fish", label: "肉・魚" },
   { value: "vegetable", label: "野菜" },
+  { value: "tofu_natto", label: "豆腐・練り物" },
+  { value: "dairy_egg", label: "乳製品・卵" },
+  { value: "dry_goods", label: "乾物・缶詰" },
   { value: "seasoning", label: "調味料" },
+  { value: "frozen", label: "冷凍食品" },
   { value: "other", label: "その他" },
 ];
 

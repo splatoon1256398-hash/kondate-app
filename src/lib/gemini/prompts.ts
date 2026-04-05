@@ -9,6 +9,8 @@ export type MealPlanContext = {
     meal_type: "lunch" | "dinner";
     title: string;
   }[];
+  favoriteRecipes: { title: string; cook_method: string }[];
+  pantryItems: { name: string; amount: number | null; unit: string | null }[];
 };
 
 export function buildSystemPrompt(context: MealPlanContext): string {
@@ -39,6 +41,20 @@ ${context.recentMeals.length > 0
     : "なし（初回利用）"
   }
 
+## 現在の冷蔵庫在庫
+${context.pantryItems.length > 0
+    ? context.pantryItems.map(i => `- ${i.name}: ${i.amount ?? "?"}${i.unit ?? ""}`).join("\n")
+    : "在庫情報なし"}
+
+在庫にある食材を優先的に使い切る献立を提案すること。
+
+## 殿堂入りレシピ（ユーザーのお気に入り）
+${context.favoriteRecipes.length > 0
+    ? context.favoriteRecipes.map(r => `- ${r.title}（${r.cook_method}）`).join("\n")
+    : "なし"}
+
+ユーザーが「殿堂入りから選んで」「お気に入りから」等と言ったら、このリストから優先的に提案する。
+
 ## 応答スタイル
 - カジュアルで親しみやすい日本語
 - 「〜はどうですか？」「〜にしましょうか」のような提案型
@@ -67,13 +83,24 @@ export async function buildContext(
   const today = new Date().toISOString().split("T")[0];
   const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().split("T")[0];
 
-  const { data: recentSlots } = await supabase
-    .from("meal_slots")
-    .select("date, meal_type, recipes(title)")
-    .gte("date", twoWeeksAgo)
-    .eq("is_skipped", false)
-    .not("recipe_id", "is", null)
-    .order("date", { ascending: false });
+  const [{ data: recentSlots }, { data: favorites }, { data: pantry }] = await Promise.all([
+    supabase
+      .from("meal_slots")
+      .select("date, meal_type, recipes(title)")
+      .gte("date", twoWeeksAgo)
+      .eq("is_skipped", false)
+      .not("recipe_id", "is", null)
+      .order("date", { ascending: false }),
+    supabase
+      .from("recipes")
+      .select("title, cook_method")
+      .eq("is_favorite", true)
+      .limit(20),
+    supabase
+      .from("pantry_items")
+      .select("name, amount, unit")
+      .order("category"),
+  ]);
 
   return {
     today,
@@ -86,6 +113,15 @@ export async function buildContext(
       date: s.date as string,
       meal_type: s.meal_type as "lunch" | "dinner",
       title: (s.recipes as { title: string } | null)?.title || "",
+    })),
+    favoriteRecipes: (favorites || []).map((r: { title: string; cook_method: string }) => ({
+      title: r.title,
+      cook_method: r.cook_method,
+    })),
+    pantryItems: (pantry || []).map((i: { name: string; amount: number | null; unit: string | null }) => ({
+      name: i.name,
+      amount: i.amount,
+      unit: i.unit,
     })),
   };
 }

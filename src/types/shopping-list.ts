@@ -1,5 +1,13 @@
 export type ShoppingListStatus = "active" | "completed";
-export type ItemCategory = "meat" | "vegetable" | "seasoning" | "other";
+export type ItemCategory =
+  | "meat_fish"
+  | "vegetable"
+  | "seasoning"
+  | "dairy_egg"
+  | "dry_goods"
+  | "tofu_natto"
+  | "frozen"
+  | "other";
 
 export type ShoppingItemResponse = {
   id: string;
