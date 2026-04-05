@@ -43,4 +43,7 @@ body {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  .pb-safe-nav {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
 }

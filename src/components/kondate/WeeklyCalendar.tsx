@@ -132,7 +132,7 @@ export default function WeeklyCalendar() {
                 </div>
 
                 {/* Meal slots */}
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   {lunch ? (
                     <MealSlotCard slot={lunch} />
                   ) : (
