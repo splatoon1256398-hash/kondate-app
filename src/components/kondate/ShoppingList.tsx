@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { shortDate } from "@/lib/utils/date";
 import type { ApiResponse } from "@/types/common";
@@ -96,6 +97,7 @@ export default function ShoppingList() {
     return () => {
       supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe only when list ID changes
   }, [list?.id]);
 
   const handleToggle = useCallback(
@@ -190,12 +192,12 @@ export default function ShoppingList() {
         <p className="text-sm text-muted">
           献立を確定すると買い物リストが生成されます
         </p>
-        <a
+        <Link
           href="/menu"
           className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
         >
           献立を見る
-        </a>
+        </Link>
       </div>
     );
   }

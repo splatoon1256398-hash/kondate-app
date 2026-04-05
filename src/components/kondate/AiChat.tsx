@@ -4,14 +4,17 @@ import { useCallback, useRef, useState } from "react";
 import { Send, Sparkles, Loader2, ShoppingCart, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { ChatMessage, SSEEvent } from "@/types/meal-plan";
+import type { ApiResponse } from "@/types/common";
 import AiChatBubble from "./AiChatBubble";
 import MealPlanProposalCard from "./MealPlanProposalCard";
+
+type ProposalData = { week_start_date: string; slots: unknown[] };
 
 type DisplayMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  proposal?: { week_start_date: string; slots: unknown[] } | null;
+  proposal?: ProposalData | null;
   savedMenuId?: string | null;
   shoppingListCreated?: boolean;
 };
@@ -26,6 +29,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [started, setStarted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<ChatMessage[]>([]);
@@ -88,6 +92,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
         const decoder = new TextDecoder();
         let buffer = "";
         let fullText = "";
+        let lastProposalJson = "";
 
         while (true) {
           const { done, value } = await reader.read();
@@ -120,6 +125,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
 
               case "function_call":
                 if (event.name === "propose_weekly_menu") {
+                  lastProposalJson = JSON.stringify(event.result);
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
@@ -159,10 +165,13 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
           }
         }
 
-        // Save to history
+        // Save to history — include FC proposal data so Gemini can save accurately
+        const historyContent = lastProposalJson
+          ? `${fullText}\n\n[propose_weekly_menu result: ${lastProposalJson}]`
+          : fullText;
         chatHistoryRef.current = [
           ...chatHistoryRef.current,
-          { role: "assistant", content: fullText },
+          { role: "assistant", content: historyContent },
         ];
       } catch {
         setMessages((prev) =>
@@ -178,6 +187,66 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
       }
     },
     [weekStartDate, scrollToBottom]
+  );
+
+  // Confirm proposal directly (bypass Gemini — call save API)
+  const confirmProposal = useCallback(
+    async (proposal: ProposalData, msgId: string) => {
+      if (confirming) return; // prevent double submit
+      setConfirming(true);
+      setStreaming(true);
+      scrollToBottom();
+
+      try {
+        const res = await fetch("/api/meal-plan/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(proposal),
+        });
+        const json: ApiResponse<{
+          weekly_menu_id: string;
+          saved_slots: number;
+          shopping_list_id: string | null;
+        }> = await res.json();
+
+        if (json.error || !json.data) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: `保存に失敗しました: ${json.error}`,
+            },
+          ]);
+        } else {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId
+                ? {
+                    ...m,
+                    savedMenuId: json.data!.weekly_menu_id,
+                    shoppingListCreated: !!json.data!.shopping_list_id,
+                  }
+                : m
+            )
+          );
+        }
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "通信エラーが発生しました。",
+          },
+        ]);
+      } finally {
+        setConfirming(false);
+        setStreaming(false);
+        scrollToBottom();
+      }
+    },
+    [confirming, scrollToBottom]
   );
 
   // Start chat with initial message
@@ -249,6 +318,13 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
                 <MealPlanProposalCard
                   weekStartDate={msg.proposal.week_start_date}
                   slots={msg.proposal.slots as Parameters<typeof MealPlanProposalCard>[0]["slots"]}
+                  confirmed={!!msg.savedMenuId}
+                  confirming={confirming}
+                  onConfirm={
+                    !msg.savedMenuId && !streaming && !confirming
+                      ? () => confirmProposal(msg.proposal!, msg.id)
+                      : undefined
+                  }
                 />
               )}
 

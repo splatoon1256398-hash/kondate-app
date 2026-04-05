@@ -7,6 +7,7 @@ import {
   executePropose,
   executeSaveWeeklyMenu,
   executeGenerateShoppingList,
+  validateSaveArgs,
 } from "@/lib/gemini/handlers";
 import type { ChatRequest, SSEEvent } from "@/types/meal-plan";
 import type { Content, Part } from "@google/genai";
@@ -44,22 +45,42 @@ export async function POST(request: NextRequest) {
     const mealPlanContext = await buildContext(supabase, reqContext?.week_start_date);
     const systemPrompt = buildSystemPrompt(mealPlanContext);
 
+    // Stream state — single source of truth
+    let closed = false;
+    let aborted = false;
+
+    // Listen for client disconnect
+    request.signal.addEventListener("abort", () => {
+      aborted = true;
+    });
+
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
-        function send(event: SSEEvent) {
-          controller.enqueue(encoder.encode(sseEncode(event)));
+        function closeOnce() {
+          if (!closed) {
+            closed = true;
+            controller.close();
+          }
         }
 
-        // Send initial comment to keep connection alive
-        controller.enqueue(encoder.encode(": connected\n\n"));
+        function send(event: SSEEvent) {
+          if (closed || aborted) return;
+          try {
+            controller.enqueue(encoder.encode(sseEncode(event)));
+          } catch {
+            // Controller errored (client disconnected)
+            closed = true;
+          }
+        }
+
+        // Keep-alive comment
+        send({ type: "text", content: "" });
 
         try {
-          // Build conversation contents for multi-turn
           const contents = convertMessages(messages);
 
-          // Call Gemini (non-streaming for FC support)
           const geminiConfig = {
             systemInstruction: systemPrompt,
             tools: [{ functionDeclarations }],
@@ -75,48 +96,55 @@ export async function POST(request: NextRequest) {
           if (!candidate?.content?.parts) {
             send({ type: "text", content: "応答を生成できませんでした。もう一度お試しください。" });
             send({ type: "done" });
-            controller.close();
+            closeOnce();
             return;
           }
 
-          // Process parts — may have text + function calls
           let pendingFcContents = [...contents];
           let parts = candidate.content.parts;
-          let maxRounds = 5; // guard against infinite FC loops
+          let maxRounds = 5;
 
-          while (maxRounds-- > 0) {
+          while (maxRounds-- > 0 && !aborted) {
             let hasFunctionCall = false;
             const fcResponseParts: Part[] = [];
 
             for (const part of parts) {
-              // Text part
+              if (aborted) break;
+
               if (part.text) {
                 send({ type: "text", content: part.text });
               }
 
-              // Function call
               if (part.functionCall) {
                 hasFunctionCall = true;
                 const { name, args } = part.functionCall;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const fcArgs = args as any;
 
                 let result: unknown;
                 try {
                   switch (name) {
                     case "propose_weekly_menu":
-                      result = executePropose(fcArgs);
+                      result = executePropose(args as Parameters<typeof executePropose>[0]);
                       break;
-                    case "save_weekly_menu":
-                      result = await executeSaveWeeklyMenu(supabase, fcArgs);
+                    case "save_weekly_menu": {
+                      const validation = validateSaveArgs(args);
+                      if (!validation.success) {
+                        result = { error: validation.error };
+                      } else {
+                        result = await executeSaveWeeklyMenu(supabase, validation.data);
+                      }
                       break;
+                    }
                     case "generate_shopping_list":
-                      result = await executeGenerateShoppingList(supabase, fcArgs);
+                      result = await executeGenerateShoppingList(
+                        supabase,
+                        args as { weekly_menu_id: string }
+                      );
                       break;
                     default:
                       result = { error: `Unknown function: ${name}` };
                   }
                 } catch (e) {
+                  console.error(`[FC:${name}] error:`, e);
                   result = { error: e instanceof Error ? e.message : "FC execution failed" };
                 }
 
@@ -131,10 +159,8 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // If no FC, we're done
-            if (!hasFunctionCall) break;
+            if (!hasFunctionCall || aborted) break;
 
-            // Send FC results back to Gemini for continuation
             pendingFcContents = [
               ...pendingFcContents,
               { role: "model" as const, parts },
@@ -159,8 +185,11 @@ export async function POST(request: NextRequest) {
           send({ type: "error", message: msg });
           send({ type: "done" });
         } finally {
-          controller.close();
+          closeOnce();
         }
+      },
+      cancel() {
+        aborted = true;
       },
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, UtensilsCrossed } from "lucide-react";
+import { ChefHat, UtensilsCrossed, CheckCircle2, Loader2 } from "lucide-react";
 import { shortDate, dayLabel } from "@/lib/utils/date";
 
 type SlotProposal = {
@@ -19,9 +19,12 @@ type SlotProposal = {
 type Props = {
   weekStartDate: string;
   slots: SlotProposal[];
+  confirmed?: boolean;
+  confirming?: boolean;
+  onConfirm?: () => void;
 };
 
-export default function MealPlanProposalCard({ slots }: Props) {
+export default function MealPlanProposalCard({ slots, confirmed, confirming, onConfirm }: Props) {
   // Group by date
   const byDate = new Map<string, SlotProposal[]>();
   for (const slot of slots) {
@@ -72,6 +75,34 @@ export default function MealPlanProposalCard({ slots }: Props) {
           </div>
         </div>
       ))}
+
+      {/* Confirm button */}
+      {onConfirm && !confirmed && (
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={confirming}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-accent py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {confirming ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              保存中...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 size={16} />
+              この献立で確定する
+            </>
+          )}
+        </button>
+      )}
+      {confirmed && (
+        <div className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-green/10 py-2 text-xs font-medium text-green">
+          <CheckCircle2 size={14} />
+          確定済み
+        </div>
+      )}
     </div>
   );
 }

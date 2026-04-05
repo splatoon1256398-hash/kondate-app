@@ -1,49 +1,74 @@
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { aggregateIngredients } from "@/lib/utils/aggregate-ingredients";
 import type { SlotWithRecipe } from "@/lib/utils/aggregate-ingredients";
 
-// -- Types for FC args --
+// -- Zod schemas for FC args validation --
 
-type RecipeArg = {
-  title: string;
-  description?: string;
-  servings_base: number;
-  cook_method: "hotcook" | "stove" | "other";
-  hotcook_menu_number?: string;
-  hotcook_unit?: string;
-  prep_time_min?: number;
-  cook_time_min?: number;
-  ingredients: {
-    name: string;
-    amount: number;
-    unit: string;
-    sort_order: number;
-  }[];
-  steps: {
-    step_number: number;
-    instruction: string;
-    tip?: string;
-  }[];
-};
+const recipeSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  servings_base: z.number().int().min(1).default(2),
+  cook_method: z.enum(["hotcook", "stove", "other"]).default("other"),
+  hotcook_menu_number: z.string().optional(),
+  hotcook_unit: z.string().optional(),
+  prep_time_min: z.number().int().min(0).optional(),
+  cook_time_min: z.number().int().min(0).optional(),
+  ingredients: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        amount: z.number().min(0),
+        unit: z.string(),
+        sort_order: z.number().int().min(0),
+      })
+    )
+    .default([]),
+  steps: z
+    .array(
+      z.object({
+        step_number: z.number().int().min(1),
+        instruction: z.string().min(1),
+        tip: z.string().optional(),
+      })
+    )
+    .default([]),
+});
 
-type SlotArg = {
-  date: string;
-  meal_type: "lunch" | "dinner";
-  servings: number;
-  is_skipped?: boolean;
-  memo?: string;
-  recipe?: RecipeArg;
-};
+const slotSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  meal_type: z.enum(["lunch", "dinner"]),
+  servings: z.number().int().min(1).max(10).default(2),
+  is_skipped: z.boolean().default(false),
+  memo: z.string().optional(),
+  recipe: recipeSchema.optional(),
+});
 
-export type SaveWeeklyMenuArgs = {
-  week_start_date: string;
-  slots: SlotArg[];
-};
+const saveWeeklyMenuArgsSchema = z.object({
+  week_start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  slots: z.array(slotSchema).min(1),
+});
 
-export type ProposeWeeklyMenuArgs = {
-  week_start_date: string;
-  slots: SlotArg[];
-};
+// -- Exported types (derived from Zod) --
+
+export type SaveWeeklyMenuArgs = z.infer<typeof saveWeeklyMenuArgsSchema>;
+export type ProposeWeeklyMenuArgs = SaveWeeklyMenuArgs;
+
+// -- Validation helper --
+
+export function validateSaveArgs(
+  args: unknown
+): { success: true; data: SaveWeeklyMenuArgs } | { success: false; error: string } {
+  const result = saveWeeklyMenuArgsSchema.safeParse(args);
+  if (!result.success) {
+    const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    return {
+      success: false,
+      error: `引数が不正です。ingredients と steps を含めて再度 save_weekly_menu を呼んでください。詳細: ${issues}`,
+    };
+  }
+  return { success: true, data: result.data };
+}
 
 // -- propose_weekly_menu --
 // No DB writes — just return the args for the frontend to display.
@@ -75,18 +100,23 @@ export async function executeSaveWeeklyMenu(
   if (menuError || !menu) throw new Error(menuError?.message ?? "Failed to upsert weekly_menu");
 
   // Delete existing slots (overwrite)
-  await supabase.from("meal_slots").delete().eq("weekly_menu_id", menu.id);
+  const { error: deleteError } = await supabase
+    .from("meal_slots")
+    .delete()
+    .eq("weekly_menu_id", menu.id);
+  if (deleteError) throw new Error(`meal_slots delete failed: ${deleteError.message}`);
 
   // 2. Save each slot + recipe
   for (const slot of args.slots) {
     let recipeId: string | null = null;
 
-    if (slot.recipe && !slot.is_skipped) {
-      // Check existing recipe by title
+    if (slot.recipe && slot.recipe.title && !slot.is_skipped) {
+      // Check existing recipe by title + cook_method for better dedup
       const { data: existing } = await supabase
         .from("recipes")
         .select("id")
         .eq("title", slot.recipe.title)
+        .eq("cook_method", slot.recipe.cook_method)
         .maybeSingle();
 
       if (existing) {
@@ -108,35 +138,40 @@ export async function executeSaveWeeklyMenu(
           .select("id")
           .single();
 
-        if (recipeError || !newRecipe) throw new Error(recipeError?.message ?? "Failed to insert recipe");
+        if (recipeError || !newRecipe) {
+          throw new Error(recipeError?.message ?? "Failed to insert recipe");
+        }
         recipeId = newRecipe.id;
 
         // Ingredients
         if (slot.recipe.ingredients.length > 0) {
-          await supabase.from("recipe_ingredients").insert(
+          const { error: ingError } = await supabase.from("recipe_ingredients").insert(
             slot.recipe.ingredients.map((i) => ({ recipe_id: recipeId, ...i }))
           );
+          if (ingError) throw new Error(`ingredients insert failed: ${ingError.message}`);
         }
 
         // Steps
         if (slot.recipe.steps.length > 0) {
-          await supabase.from("recipe_steps").insert(
+          const { error: stepsError } = await supabase.from("recipe_steps").insert(
             slot.recipe.steps.map((s) => ({ recipe_id: recipeId, ...s }))
           );
+          if (stepsError) throw new Error(`steps insert failed: ${stepsError.message}`);
         }
       }
     }
 
     // 3. Insert meal_slot
-    await supabase.from("meal_slots").insert({
+    const { error: slotError } = await supabase.from("meal_slots").insert({
       weekly_menu_id: menu.id,
       date: slot.date,
       meal_type: slot.meal_type,
       servings: slot.servings,
       recipe_id: recipeId,
       memo: slot.memo ?? null,
-      is_skipped: slot.is_skipped || false,
+      is_skipped: slot.is_skipped,
     });
+    if (slotError) throw new Error(`meal_slot insert failed: ${slotError.message}`);
   }
 
   return { weekly_menu_id: menu.id, saved_slots: args.slots.length };
@@ -173,7 +208,7 @@ export async function executeGenerateShoppingList(
 
   // 5. Insert items
   if (aggregatedItems.length > 0) {
-    await supabase.from("shopping_items").insert(
+    const { error: itemsError } = await supabase.from("shopping_items").insert(
       aggregatedItems.map((item) => ({
         shopping_list_id: list.id,
         name: item.name,
@@ -183,6 +218,7 @@ export async function executeGenerateShoppingList(
         is_checked: false,
       }))
     );
+    if (itemsError) throw new Error(`shopping_items insert failed: ${itemsError.message}`);
   }
 
   return { shopping_list_id: list.id, items_count: aggregatedItems.length };
