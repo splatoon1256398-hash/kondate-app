@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Sparkles,
   X,
@@ -10,7 +10,11 @@ import {
   ChefHat,
   Flame,
   Shuffle,
+  Search,
+  Heart,
 } from "lucide-react";
+import type { RecipeListItem } from "@/types/recipe";
+import type { ApiResponse } from "@/types/common";
 import {
   getMonday,
   getWeekDays,
@@ -57,8 +61,30 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   );
   const [notes, setNotes] = useState("");
   const [cookMode, setCookMode] = useState<CookMode>("hotcook");
+  const [wantRecipes, setWantRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [recipeSearch, setRecipeSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<RecipeListItem[]>([]);
+  const [showRecipeSearch, setShowRecipeSearch] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const days = getWeekDays(weekStart);
+
+  // Recipe search
+  useEffect(() => {
+    if (!recipeSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/recipes?q=${encodeURIComponent(recipeSearch)}&limit=10`);
+        const json: ApiResponse<RecipeListItem[]> = await res.json();
+        if (json.data) setSearchResults(json.data);
+      } catch { /* ignore */ }
+    }, 300);
+    return () => clearTimeout(searchTimerRef.current);
+  }, [recipeSearch]);
 
   // Week navigation
   const goToPrevWeek = useCallback(() => {
@@ -172,6 +198,13 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
       parts.push(`\n不要な枠（外食など）: ${skipped.join("、")}`);
     }
 
+    // Requested recipes
+    if (wantRecipes.length > 0) {
+      parts.push(
+        `\n食べたいレシピ（必ず組み込んで）:\n${wantRecipes.map((r) => `- ${r.title}`).join("\n")}`
+      );
+    }
+
     if (notes.trim()) {
       parts.push(`\nメモ: ${notes.trim()}`);
     }
@@ -179,7 +212,7 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
     parts.push("\n献立を提案してください！");
 
     onSubmit(parts.join("\n"), weekStart);
-  }, [ingredients, days, slots, notes, weekStart, cookMode, onSubmit]);
+  }, [ingredients, days, slots, notes, weekStart, cookMode, wantRecipes, onSubmit]);
 
   const weekEndDate = days[days.length - 1];
 
@@ -329,6 +362,113 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
               );
             })}
           </div>
+        </section>
+
+        {/* Recipe requests */}
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">食べたいレシピ</h2>
+
+          {/* Selected recipes */}
+          {wantRecipes.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {wantRecipes.map((r) => (
+                <span
+                  key={r.id}
+                  className="flex items-center gap-1 rounded-full bg-green/10 px-2.5 py-1 text-xs text-green"
+                >
+                  {r.title}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setWantRecipes((prev) => prev.filter((x) => x.id !== r.id))
+                    }
+                    className="ml-0.5 text-green/60 hover:text-green"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Search toggle */}
+          {!showRecipeSearch ? (
+            <button
+              type="button"
+              onClick={() => setShowRecipeSearch(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted transition-colors active:border-accent active:text-accent"
+            >
+              <Search size={14} />
+              レシピを検索して追加
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                />
+                <input
+                  type="text"
+                  value={recipeSearch}
+                  onChange={(e) => setRecipeSearch(e.target.value)}
+                  placeholder="レシピ名で検索..."
+                  autoFocus
+                  className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-8 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRecipeSearch(false);
+                    setRecipeSearch("");
+                    setSearchResults([]);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Search results */}
+              {searchResults.length > 0 && (
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-card p-1.5">
+                  {searchResults
+                    .filter((r) => !wantRecipes.some((w) => w.id === r.id))
+                    .map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => {
+                          setWantRecipes((prev) => [
+                            ...prev,
+                            { id: r.id, title: r.title },
+                          ]);
+                          setRecipeSearch("");
+                          setSearchResults([]);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-card-hover active:bg-accent/10"
+                      >
+                        <Plus size={14} className="shrink-0 text-accent" />
+                        <span className="flex-1 truncate">{r.title}</span>
+                        {r.is_favorite && (
+                          <Heart
+                            size={10}
+                            className="shrink-0 fill-danger text-danger"
+                          />
+                        )}
+                        {r.cook_method === "hotcook" && (
+                          <ChefHat size={12} className="shrink-0 text-accent" />
+                        )}
+                      </button>
+                    ))}
+                </div>
+              )}
+
+              {recipeSearch.trim() && searchResults.length === 0 && (
+                <p className="px-2 text-xs text-muted">該当なし</p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Additional notes */}
