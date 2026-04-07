@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Star, Heart, MessageSquare } from "lucide-react";
 import type { RecipeRating, CreateRating, UserName } from "@/types/rating";
 import type { ApiResponse } from "@/types/common";
@@ -19,22 +19,27 @@ export default function RatingStars({ recipeId, isFavorite, onFavoriteChange }: 
   const [comment, setComment] = useState("");
   const [showComment, setShowComment] = useState(false);
 
-  const fetchRatings = useCallback(async () => {
-    const res = await fetch(`/api/recipes/${recipeId}/ratings`);
-    const json: ApiResponse<RecipeRating[]> = await res.json();
-    if (json.data) {
-      setRatings(json.data);
-      // Set comment from existing rating
-      const existing = json.data.find((r) => r.user_name === activeUser);
-      if (existing?.comment) setComment(existing.comment);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`/api/recipes/${recipeId}/ratings`);
+        const json: ApiResponse<RecipeRating[]> = await res.json();
+        if (!cancelled && json.data) {
+          setRatings(json.data);
+          const existing = json.data.find((r) => r.user_name === activeUser);
+          if (existing?.comment) setComment(existing.comment);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
     }
-    setLoaded(true);
-  }, [recipeId, activeUser]);
-
-  // Load on first render
-  if (!loaded) {
-    fetchRatings();
-  }
+    load();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
+  }, [recipeId]);
 
   const userRating = ratings.find((r) => r.user_name === activeUser);
   const otherUser: UserName = activeUser === "れん" ? "あかね" : "れん";

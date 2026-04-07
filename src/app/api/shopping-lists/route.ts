@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("shopping_lists")
       .select(`
-        id, weekly_menu_id, status, created_at,
+        id, weekly_menu_id, status, actual_total, transaction_id, created_at,
         weekly_menus ( week_start_date ),
         shopping_items ( id, name, amount, unit, category, is_checked, checked_by )
       `)
@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
           weekly_menu_id: list.weekly_menu_id,
           status: list.status as ShoppingListResponse["status"],
           week_start_date: weeklyMenus?.week_start_date ?? "",
+          actual_total: list.actual_total ?? null,
+          transaction_id: list.transaction_id ?? null,
           items: (list.shopping_items || []) as unknown as ShoppingListResponse["items"],
         };
       }

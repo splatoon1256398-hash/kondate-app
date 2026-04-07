@@ -24,6 +24,8 @@ export type ShoppingListResponse = {
   weekly_menu_id: string;
   status: ShoppingListStatus;
   week_start_date: string;
+  actual_total: number | null;
+  transaction_id: string | null;
   items: ShoppingItemResponse[];
 };
 

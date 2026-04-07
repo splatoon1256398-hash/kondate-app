@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatDate } from "@/lib/utils/date";
 
 export type MealPlanContext = {
   today: string;
@@ -73,22 +74,22 @@ function getNextMonday(dateStr: string): string {
   const day = d.getDay();
   const diff = day === 0 ? 1 : day === 1 ? 7 : 8 - day;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split("T")[0];
+  return formatDate(d);
 }
 
 function getNextSunday(dateStr: string): string {
   const monday = getNextMonday(dateStr);
   const d = new Date(monday);
   d.setDate(d.getDate() + 6);
-  return d.toISOString().split("T")[0];
+  return formatDate(d);
 }
 
 export async function buildContext(
   supabase: SupabaseClient,
   overrideWeekStart?: string
 ): Promise<MealPlanContext> {
-  const today = new Date().toISOString().split("T")[0];
-  const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().split("T")[0];
+  const today = formatDate(new Date());
+  const twoWeeksAgo = formatDate(new Date(Date.now() - 14 * 86400000));
 
   const [{ data: recentSlots }, { data: favorites }, { data: pantry }] = await Promise.all([
     supabase
@@ -113,7 +114,7 @@ export async function buildContext(
     today,
     weekStartDate: overrideWeekStart || getNextMonday(today),
     weekEndDate: overrideWeekStart
-      ? (() => { const d = new Date(overrideWeekStart); d.setDate(d.getDate() + 6); return d.toISOString().split("T")[0]; })()
+      ? (() => { const d = new Date(overrideWeekStart); d.setDate(d.getDate() + 6); return formatDate(d); })()
       : getNextSunday(today),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recentMeals: (recentSlots || []).map((s: any) => ({

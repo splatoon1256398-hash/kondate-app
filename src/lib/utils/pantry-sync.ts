@@ -16,12 +16,19 @@ export async function syncShoppingToPantry(
   if (!items?.length) return;
 
   for (const item of items) {
-    const { data: existing } = await supabase
+    // Build query with proper null handling for unit
+    let query = supabase
       .from("pantry_items")
       .select("id, amount")
-      .eq("name", item.name)
-      .eq("unit", item.unit || "")
-      .maybeSingle();
+      .eq("name", item.name);
+
+    if (item.unit) {
+      query = query.eq("unit", item.unit);
+    } else {
+      query = query.is("unit", null);
+    }
+
+    const { data: existing } = await query.maybeSingle();
 
     if (existing) {
       await supabase
@@ -56,18 +63,26 @@ export async function consumeIngredientsFromPantry(
     .eq("id", recipeId)
     .single();
 
-  if (!recipe) return;
+  if (!recipe || !recipe.servings_base || recipe.servings_base <= 0) return;
 
   const ratio = servings / recipe.servings_base;
+  if (!isFinite(ratio) || ratio <= 0) return;
 
   for (const ing of recipe.recipe_ingredients as { name: string; amount: number; unit: string }[]) {
     const consumed = ing.amount * ratio;
+    if (!isFinite(consumed) || consumed <= 0) continue;
 
-    const { data: pantryItem } = await supabase
+    // Match by name + unit for accurate consumption
+    let query = supabase
       .from("pantry_items")
       .select("id, amount")
-      .eq("name", ing.name)
-      .maybeSingle();
+      .eq("name", ing.name);
+
+    if (ing.unit) {
+      query = query.eq("unit", ing.unit);
+    }
+
+    const { data: pantryItem } = await query.maybeSingle();
 
     if (pantryItem) {
       const remaining = (pantryItem.amount || 0) - consumed;

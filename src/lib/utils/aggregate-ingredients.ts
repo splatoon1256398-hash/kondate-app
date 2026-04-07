@@ -29,9 +29,10 @@ export function aggregateIngredients(slots: SlotWithRecipe[]): AggregatedItem[] 
   const map = new Map<string, AggregatedItem>();
 
   for (const slot of slots) {
-    if (!slot.recipes) continue;
+    if (!slot.recipes || !slot.recipes.servings_base) continue;
 
     const ratio = slot.servings / slot.recipes.servings_base;
+    if (!isFinite(ratio) || ratio <= 0) continue;
 
     for (const ing of slot.recipes.recipe_ingredients) {
       const key = `${ing.name}::${ing.unit}`;
