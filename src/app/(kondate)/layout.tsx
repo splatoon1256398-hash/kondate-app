@@ -7,7 +7,7 @@ export default function KondateLayout({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <main className="flex-1 pb-16">{children}</main>
+      <main className="flex-1 pb-20">{children}</main>
       <BottomNav />
     </div>
   );
