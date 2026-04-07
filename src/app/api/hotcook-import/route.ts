@@ -26,6 +26,13 @@ type HotcookStep = {
 };
 
 type HotcookRecipeResponse = {
+  // New API format
+  name?: string;
+  cookingTime?: string;
+  quantity?: string;
+  materials?: { name?: string; quantity?: string; orderNumber?: number }[];
+  methods?: { text?: string; renderedHtml?: string; orderNumber?: number }[];
+  // Old API format (fallbacks)
   recipeName?: string;
   recipeNameKana?: string;
   menuNo?: string;
@@ -34,7 +41,6 @@ type HotcookRecipeResponse = {
   cookTime?: string | number;
   ingredients?: HotcookIngredient[];
   steps?: HotcookStep[];
-  // The API may vary; we handle what's available
   [key: string]: unknown;
 };
 
@@ -92,21 +98,24 @@ export async function POST(request: NextRequest) {
 
     const raw: HotcookRecipeResponse = await res.json();
 
-    // Parse the response
-    const title = raw.recipeName || `ホットクックレシピ ${recipeId}`;
+    // Parse the response — handle both new API format (name/materials/methods) and old format (recipeName/ingredients/steps)
+    const title = raw.name || raw.recipeName || `ホットクックレシピ ${recipeId}`;
     const menuNo = raw.menuNo || recipeId;
     const mixingUnit = raw.mixingUnit || "";
-    const servingsText = raw.servings || "2";
+    const servingsText = raw.quantity || raw.servings || "2";
     const servingsBase = parseInt(servingsText.replace(/[^0-9]/g, "")) || 2;
-    const cookTimeRaw = raw.cookTime;
-    const cookTimeMin = typeof cookTimeRaw === "number"
-      ? cookTimeRaw
-      : cookTimeRaw
-        ? parseInt(String(cookTimeRaw).replace(/[^0-9]/g, "")) || null
-        : null;
+    const cookTimeStr = raw.cookingTime || (raw.cookTime != null ? String(raw.cookTime) : "");
+    const cookTimeMatch = cookTimeStr.match(/(\d+)/);
+    const cookTimeMin = cookTimeMatch ? parseInt(cookTimeMatch[1]) : null;
 
-    // Parse ingredients
-    const ingredients = (raw.ingredients || [])
+    // Parse ingredients — new format: materials[].quantity, old format: ingredients[].amount
+    const rawMaterials = raw.materials || [];
+    const rawIngredients = raw.ingredients || [];
+    const ingredientSource = rawMaterials.length > 0
+      ? rawMaterials.map((m) => ({ name: m.name, amount: m.quantity }))
+      : rawIngredients;
+
+    const ingredients = ingredientSource
       .filter((i) => i.name)
       .map((i, idx) => {
         const amountStr = i.amount || "";
@@ -121,8 +130,14 @@ export async function POST(request: NextRequest) {
         };
       });
 
-    // Parse steps
-    const steps = (raw.steps || [])
+    // Parse steps — new format: methods[].text, old format: steps[].description
+    const rawMethods = raw.methods || [];
+    const rawSteps = raw.steps || [];
+    const stepSource = rawMethods.length > 0
+      ? rawMethods.map((m) => ({ description: m.text || m.renderedHtml, tips: undefined as string | undefined }))
+      : rawSteps;
+
+    const steps = stepSource
       .filter((s) => s.description)
       .map((s, idx) => ({
         step_number: idx + 1,
