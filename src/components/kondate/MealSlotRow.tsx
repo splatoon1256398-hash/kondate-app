@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { Check, SkipForward, ChefHat, MoreHorizontal, Sun, Moon, Play } from "lucide-react";
+import { Check, SkipForward, ChefHat, MoreHorizontal, Sun, Moon, BookOpen } from "lucide-react";
 import type { MealSlotResponse } from "@/types/weekly-menu";
 
 type Props = {
@@ -120,11 +120,11 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
         <div className="flex gap-1.5 px-1">
           {slot.recipe_id && (
             <Link
-              href={`/cooking/${slot.recipe_id}`}
+              href={`/menu/${slot.recipe_id}?servings=${slot.servings}`}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent/10 py-2 text-[11px] font-semibold text-accent active:bg-accent/20"
             >
-              <Play size={11} />
-              クッキングモード
+              <BookOpen size={11} />
+              調理
             </Link>
           )}
           <button
@@ -184,10 +184,10 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
         <div className="absolute right-0 top-full z-10 mt-1 flex gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg">
           {slot.recipe_id && (
             <Link
-              href={`/cooking/${slot.recipe_id}`}
+              href={`/menu/${slot.recipe_id}?servings=${slot.servings}`}
               className="flex items-center gap-1.5 rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent active:bg-accent/20"
             >
-              <Play size={12} />
+              <BookOpen size={12} />
               調理
             </Link>
           )}
