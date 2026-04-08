@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChefHat, Clock, Flame, ArrowLeft } from "lucide-react";
+import { ChefHat, Clock, Flame, ChevronLeft, Play } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail as RecipeDetailType } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
@@ -41,123 +42,142 @@ export default function RecipeDetail({ recipeId, servings }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
       </div>
     );
   }
 
   if (error || !recipe) {
     return (
-      <div className="px-4 pt-6">
-        <button type="button" onClick={() => router.back()} className="mb-4 text-muted hover:text-foreground">
-          <ArrowLeft size={20} />
+      <div className="bg-bg-grouped px-4 pt-6">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-4 flex items-center gap-0.5 text-[17px] text-blue active:opacity-60"
+        >
+          <ChevronLeft size={22} strokeWidth={2.5} />
+          戻る
         </button>
-        <p className="text-sm text-danger">{error || "レシピが見つかりません"}</p>
+        <p className="text-[15px] text-red">{error || "レシピが見つかりません"}</p>
       </div>
     );
   }
 
   return (
-    <div className="pb-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <button type="button" onClick={() => router.back()} className="text-muted hover:text-foreground">
-          <ArrowLeft size={20} />
+    <div className="bg-bg-grouped pb-8">
+      {/* Navigation Bar */}
+      <div className="material-bar separator-bottom flex items-center px-2 py-2.5">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-0.5 px-2 text-[17px] text-blue active:opacity-60"
+        >
+          <ChevronLeft size={22} strokeWidth={2.5} />
+          戻る
         </button>
-        <h1 className="flex-1 text-base font-bold leading-tight">{recipe.title}</h1>
+        <h1 className="line-clamp-1 flex-1 text-center text-[17px] font-semibold text-label">
+          {recipe.title}
+        </h1>
+        <div className="w-16" />
       </div>
 
-      {/* Hotcook info */}
-      {recipe.cook_method === "hotcook" && (
-        <div className="mx-4 rounded-lg border border-accent/20 bg-accent/5 p-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-accent">
-            <ChefHat size={16} />
-            ホットクック
-            {recipe.hotcook_menu_number && (
-              <span className="text-xs text-muted">No.{recipe.hotcook_menu_number}</span>
-            )}
-          </div>
-          <div className="mt-1.5 flex gap-4 text-xs text-muted">
-            {recipe.hotcook_unit && (
-              <span>まぜ技ユニット: {recipe.hotcook_unit}</span>
-            )}
-            {recipe.prep_time_min != null && (
-              <span className="flex items-center gap-1">
-                <Clock size={12} />
-                下ごしらえ {recipe.prep_time_min}分
-              </span>
-            )}
-            {recipe.cook_time_min != null && (
-              <span className="flex items-center gap-1">
-                <Flame size={12} />
-                加熱 {recipe.cook_time_min}分
-              </span>
-            )}
-          </div>
+      {/* Recipe image */}
+      {recipe.image_url && (
+        <div className="mx-4 mt-4 overflow-hidden rounded-[14px]">
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            className="h-56 w-full object-cover"
+          />
         </div>
       )}
 
-      {/* Non-hotcook time info */}
-      {recipe.cook_method !== "hotcook" && (recipe.prep_time_min != null || recipe.cook_time_min != null) && (
-        <div className="mx-4 mt-2 flex gap-4 text-xs text-muted">
-          {recipe.prep_time_min != null && (
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              下ごしらえ {recipe.prep_time_min}分
-            </span>
-          )}
-          {recipe.cook_time_min != null && (
-            <span className="flex items-center gap-1">
-              <Flame size={12} />
-              加熱 {recipe.cook_time_min}分
-            </span>
-          )}
+      {/* Hotcook info */}
+      {recipe.cook_method === "hotcook" && (
+        <div className="mx-4 mt-4">
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            ホットクック
+          </h2>
+          <div className="rounded-[10px] bg-bg-grouped-secondary p-4">
+            <div className="flex items-center gap-2 text-[15px] font-semibold text-blue">
+              <ChefHat size={16} strokeWidth={1.5} />
+              {recipe.hotcook_menu_number && <span>No.{recipe.hotcook_menu_number}</span>}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-label-secondary">
+              {recipe.hotcook_unit && <span>まぜ技: {recipe.hotcook_unit}</span>}
+              {recipe.prep_time_min != null && (
+                <span className="flex items-center gap-1">
+                  <Clock size={12} strokeWidth={1.5} />
+                  下ごしらえ {recipe.prep_time_min}分
+                </span>
+              )}
+              {recipe.cook_time_min != null && (
+                <span className="flex items-center gap-1">
+                  <Flame size={12} strokeWidth={1.5} />
+                  加熱 {recipe.cook_time_min}分
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Servings */}
-      <div className="mx-4 mt-3 text-xs text-muted">
+      <div className="mx-4 mt-4 text-[13px] text-label-tertiary">
         {servings ?? recipe.servings_base}人分
         {servings && servings !== recipe.servings_base && (
-          <span className="ml-1">(元レシピ: {recipe.servings_base}人分)</span>
+          <span className="ml-1">(元: {recipe.servings_base}人分)</span>
         )}
       </div>
 
       {/* Ingredients */}
-      <section className="mt-4 px-4">
-        <h2 className="mb-2 text-sm font-bold text-accent">材料</h2>
-        <ul className="space-y-1.5">
+      <section className="mt-2 px-4">
+        <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+          材料
+        </h2>
+        <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
           {recipe.ingredients.map((ing) => (
-            <li key={ing.id} className="flex items-baseline justify-between text-sm">
-              <span>{ing.name}</span>
-              <span className="ml-2 shrink-0 text-xs text-muted">
+            <div key={ing.id} className="flex min-h-[44px] items-center justify-between px-4 py-2.5">
+              <span className="text-[17px] text-label">{ing.name}</span>
+              <span className="text-[15px] text-label-secondary">
                 {ing.amount} {ing.unit}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
 
       {/* Steps */}
       <section className="mt-5 px-4">
-        <h2 className="mb-2 text-sm font-bold text-accent">手順</h2>
-        <ol className="space-y-3">
+        <div className="mb-1.5 flex items-center justify-between pl-4">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            手順
+          </h2>
+          {recipe.steps.length > 0 && (
+            <Link
+              href={`/cooking/${recipeId}`}
+              className="flex items-center gap-1 rounded-full bg-blue px-3 py-1.5 text-[13px] font-semibold text-white active:opacity-80"
+            >
+              <Play size={12} strokeWidth={2} />
+              クッキングモード
+            </Link>
+          )}
+        </div>
+        <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
           {recipe.steps.map((step) => (
-            <li key={step.id} className="flex gap-3 text-sm">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
+            <div key={step.id} className="flex gap-3 px-4 py-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue text-[13px] font-bold text-white">
                 {step.step_number}
               </span>
               <div className="flex-1">
-                <p>{step.instruction}</p>
+                <p className="text-[15px] leading-snug text-label">{step.instruction}</p>
                 {step.tip && (
-                  <p className="mt-1 text-xs text-orange">
-                    {step.tip}
-                  </p>
+                  <p className="mt-1 text-[13px] text-orange">💡 {step.tip}</p>
                 )}
               </div>
-            </li>
+            </div>
           ))}
-        </ol>
+        </div>
       </section>
     </div>
   );

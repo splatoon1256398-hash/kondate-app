@@ -20,7 +20,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: num
 function isExpiringSoon(dateStr: string | null): boolean {
   if (!dateStr) return false;
   const diff = new Date(dateStr).getTime() - Date.now();
-  return diff >= 0 && diff < 3 * 86400000; // 3日以内
+  return diff >= 0 && diff < 3 * 86400000;
 }
 
 function isExpired(dateStr: string | null): boolean {
@@ -102,96 +102,92 @@ export default function PantryList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Refrigerator size={20} className="text-blue" />
-          <h1 className="text-lg font-bold">在庫</h1>
-        </div>
-        <span className="text-xs text-muted">{items.length} アイテム</span>
+    <div className="bg-bg-grouped pb-6">
+      {/* Large Title */}
+      <div className="px-4 pt-3 pb-2">
+        <h1 className="text-[34px] font-bold leading-[41px] text-label">在庫</h1>
+        <p className="text-[15px] text-label-secondary">{items.length} アイテム</p>
       </div>
 
-      {/* Warning: expiring items */}
+      {/* Warning */}
       {items.some((i) => isExpiringSoon(i.expiry_date) || isExpired(i.expiry_date)) && (
-        <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg bg-orange/10 px-3 py-2 text-xs text-orange">
-          <AlertTriangle size={14} />
-          期限が近い or 切れた食材があります
+        <div className="mx-4 mb-4 flex items-center gap-2 rounded-[10px] bg-orange/10 px-4 py-3 text-[13px] text-orange">
+          <AlertTriangle size={14} strokeWidth={1.5} />
+          期限が近い・切れた食材があります
         </div>
       )}
 
-      {/* Staple items section */}
+      {/* Staples */}
       {staples.length > 0 && (
-        <div className="mb-4 px-3">
-          <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-semibold text-accent">
-            <Pin size={12} />
-            常備品
-            <span className="text-[10px] font-normal text-muted">({staples.length})</span>
+        <section className="mb-5">
+          <h2 className="mb-1.5 flex items-center gap-1.5 px-4 pl-4 text-[13px] font-semibold uppercase tracking-wide text-blue">
+            <Pin size={11} strokeWidth={2} />
+            常備品 ({staples.length})
           </h2>
-          <div className="flex flex-wrap gap-1.5">
-            {staples.map((item) => (
-              <span
-                key={item.id}
-                className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-xs text-accent"
-              >
-                {item.name}
-                <button
-                  type="button"
-                  onClick={() => toggleStaple(item.id, true)}
-                  className="ml-0.5 text-accent/40 hover:text-accent"
+          <div className="mx-4 rounded-[10px] bg-bg-grouped-secondary p-3">
+            <div className="flex flex-wrap gap-1.5">
+              {staples.map((item) => (
+                <span
+                  key={item.id}
+                  className="flex items-center gap-1 rounded-full bg-blue/10 px-2.5 py-1 text-[13px] font-medium text-blue"
                 >
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
+                  {item.name}
+                  <button
+                    type="button"
+                    onClick={() => toggleStaple(item.id, true)}
+                    className="ml-0.5 text-blue/60"
+                    aria-label="常備品から外す"
+                  >
+                    <X size={11} strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
       )}
 
       {regularItems.length === 0 && staples.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-          <Refrigerator size={32} className="text-muted" />
-          <p className="text-sm text-muted">在庫は空です</p>
-          <p className="text-xs text-muted">買い物リストのチェックで自動追加されます</p>
+        <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-fill">
+            <Refrigerator size={28} className="text-blue" strokeWidth={1.5} />
+          </div>
+          <p className="text-[17px] text-label">在庫は空です</p>
+          <p className="text-[13px] text-label-secondary">買い物リストのチェックで自動追加されます</p>
         </div>
-      ) : regularItems.length === 0 ? null : (
-        <div className="space-y-4 px-3">
+      ) : (
+        <div className="px-4">
           {grouped.map(({ category, config, items: catItems }) => (
-            <section key={category}>
-              <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-semibold text-muted">
+            <section key={category} className="mt-5">
+              <h2 className="mb-1.5 flex items-center gap-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
                 <span>{config.emoji}</span>
                 {config.label}
-                <span className="text-[10px] font-normal">({catItems.length})</span>
+                <span className="text-[11px] font-normal">({catItems.length})</span>
               </h2>
-              <div className="space-y-1">
+              <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
                 {catItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`flex items-center justify-between rounded-lg bg-card px-3 py-2.5 ${
-                      isExpired(item.expiry_date)
-                        ? "border border-danger/30"
-                        : isExpiringSoon(item.expiry_date)
-                          ? "border border-orange/30"
-                          : ""
-                    }`}
+                    className="flex min-h-[44px] items-center px-4 py-2.5"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         {(isExpired(item.expiry_date) || isExpiringSoon(item.expiry_date)) && (
                           <AlertTriangle
                             size={12}
-                            className={isExpired(item.expiry_date) ? "text-danger" : "text-orange"}
+                            className={isExpired(item.expiry_date) ? "text-red" : "text-orange"}
+                            strokeWidth={2}
                           />
                         )}
-                        <span className="text-sm">{item.name}</span>
+                        <span className="text-[17px] text-label">{item.name}</span>
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted">
+                      <div className="mt-0.5 flex items-center gap-2 text-[12px] text-label-tertiary">
                         {item.amount != null && (
                           <span>
                             {item.amount}
@@ -199,7 +195,7 @@ export default function PantryList() {
                           </span>
                         )}
                         {item.expiry_date && (
-                          <span className={isExpired(item.expiry_date) ? "text-danger" : ""}>
+                          <span className={isExpired(item.expiry_date) ? "text-red" : ""}>
                             ~{item.expiry_date.slice(5).replace("-", "/")}
                           </span>
                         )}
@@ -209,19 +205,19 @@ export default function PantryList() {
                       <button
                         type="button"
                         onClick={() => toggleStaple(item.id, item.is_staple)}
-                        className={`rounded-lg p-1.5 transition-colors ${
-                          item.is_staple ? "text-accent" : "text-muted hover:text-accent"
-                        }`}
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          item.is_staple ? "text-blue" : "text-label-tertiary"
+                        } active:bg-fill`}
                         aria-label="常備品にする"
                       >
-                        <Pin size={12} />
+                        <Pin size={14} strokeWidth={1.5} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item.id)}
-                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-red active:bg-fill"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
@@ -232,8 +228,8 @@ export default function PantryList() {
         </div>
       )}
 
-      {/* Add button */}
-      <div className="mt-4 px-3">
+      {/* Add */}
+      <div className="mt-5 px-4">
         <PantryAddDialog onAdd={handleAdd} />
       </div>
     </div>
@@ -275,82 +271,100 @@ function PantryAddDialog({
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+          className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-bg-grouped-secondary py-3 text-[15px] font-medium text-blue active:bg-fill-tertiary"
         >
-          <Plus size={16} />
+          <Plus size={16} strokeWidth={2} />
           食材を追加
         </button>
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-sm font-bold">食材を追加</Dialog.Title>
-            <Dialog.Close className="text-muted hover:text-foreground">
-              <X size={18} />
-            </Dialog.Close>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" />
+        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg rounded-t-[14px] bg-bg-secondary pb-safe shadow-2xl">
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="h-1 w-9 rounded-full bg-gray3" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <input
-              type="text"
-              placeholder="食材名"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-              autoFocus
-            />
-
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="数量"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                step="any"
-                className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-              <input
-                type="text"
-                placeholder="単位"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-20 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-              <input
-                type="date"
-                placeholder="期限"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted focus:border-accent focus:outline-none"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setCategory(key)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] transition-colors ${
-                    category === key
-                      ? "bg-accent text-background"
-                      : "border border-border bg-background text-muted"
-                  }`}
-                >
-                  {cfg.emoji} {cfg.label}
-                </button>
-              ))}
-            </div>
-
+          <div className="flex items-center justify-between px-4 py-2">
+            <Dialog.Close className="text-[17px] text-blue active:opacity-60">
+              キャンセル
+            </Dialog.Close>
+            <Dialog.Title className="text-[17px] font-semibold text-label">食材を追加</Dialog.Title>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={!name.trim()}
-              className="w-full rounded-lg bg-accent py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="text-[17px] font-semibold text-blue active:opacity-60 disabled:opacity-30"
             >
               追加
             </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5 px-4 pb-6 pt-3">
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-20 shrink-0 text-[17px] text-label">食材名</span>
+                <input
+                  type="text"
+                  placeholder="必須"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-20 shrink-0 text-[17px] text-label">数量</span>
+                <input
+                  type="number"
+                  placeholder="任意"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  step="any"
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="単位"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="w-16 bg-transparent text-right text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                />
+              </div>
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-20 shrink-0 text-[17px] text-label">期限</span>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label-secondary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+                カテゴリ
+              </h3>
+              <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setCategory(key)}
+                      className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                        category === key
+                          ? "bg-blue text-white"
+                          : "bg-fill text-label"
+                      }`}
+                    >
+                      {cfg.emoji} {cfg.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </form>
         </Dialog.Content>
       </Dialog.Portal>

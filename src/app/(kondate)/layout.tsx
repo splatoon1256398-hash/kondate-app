@@ -6,8 +6,8 @@ export default function KondateLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <main className="flex-1 pb-20">{children}</main>
+    <div className="flex min-h-dvh flex-col bg-bg-grouped">
+      <main className="flex-1 pb-[calc(49px+env(safe-area-inset-bottom))]">{children}</main>
       <BottomNav />
     </div>
   );

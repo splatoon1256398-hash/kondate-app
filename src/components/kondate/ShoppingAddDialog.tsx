@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { ItemCategory } from "@/types/shopping-list";
 
 type Props = {
@@ -50,77 +50,97 @@ export default function ShoppingAddDialog({ onAdd }: Props) {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+          className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-bg-grouped-secondary py-3 text-[15px] font-medium text-blue active:bg-fill-tertiary"
         >
-          <Plus size={16} />
-          追加
+          <Plus size={16} strokeWidth={2} />
+          アイテムを追加
         </button>
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-sm font-bold">
-              アイテムを追加
-            </Dialog.Title>
-            <Dialog.Close className="text-muted hover:text-foreground">
-              <X size={18} />
-            </Dialog.Close>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" />
+        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg rounded-t-[14px] bg-bg-secondary pb-safe shadow-2xl">
+          {/* Grab bar */}
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="h-1 w-9 rounded-full bg-gray3" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <input
-              type="text"
-              placeholder="食材名"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-              autoFocus
-            />
-
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="数量"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                step="any"
-                className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-              <input
-                type="text"
-                placeholder="単位"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-20 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => setCategory(c.value)}
-                  className={`rounded-full px-3 py-1 text-xs transition-colors ${
-                    category === c.value
-                      ? "bg-accent text-background"
-                      : "bg-background text-muted border border-border"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2">
+            <Dialog.Close className="text-[17px] text-blue active:opacity-60">
+              キャンセル
+            </Dialog.Close>
+            <Dialog.Title className="text-[17px] font-semibold text-label">
+              アイテムを追加
+            </Dialog.Title>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={!name.trim()}
-              className="w-full rounded-lg bg-accent py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="text-[17px] font-semibold text-blue active:opacity-60 disabled:opacity-30"
             >
-              追加する
+              追加
             </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5 px-4 pb-6 pt-3">
+            {/* Name + amount in grouped list */}
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-20 shrink-0 text-[17px] text-label">食材名</span>
+                <input
+                  type="text"
+                  placeholder="必須"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-20 shrink-0 text-[17px] text-label">数量</span>
+                <input
+                  type="number"
+                  placeholder="任意"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  step="any"
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="単位"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="w-16 bg-transparent text-right text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Category */}
+            <div>
+              <h3 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+                カテゴリ
+              </h3>
+              <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setCategory(c.value)}
+                      className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                        category === c.value
+                          ? "bg-blue text-white"
+                          : "bg-fill text-label"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </form>
         </Dialog.Content>
       </Dialog.Portal>

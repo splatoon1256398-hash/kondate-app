@@ -55,95 +55,87 @@ export default function WeeklyCalendar() {
   }
 
   return (
-    <div>
-      {/* Week header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setWeekStart(prevWeek(weekStart))}
-          className="rounded-xl p-2.5 text-muted transition-colors active:bg-card"
-          aria-label="前の週"
-        >
-          <ChevronLeft size={22} />
-        </button>
-
-        <div className="text-center">
-          <h2 className="text-base font-bold">
-            {shortDate(weekStart)} 〜 {shortDate(weekEndDate)}
-          </h2>
+    <div className="bg-bg-grouped">
+      {/* Large Title Navigation */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between">
+          <h1 className="text-[34px] font-bold leading-[41px] text-label">献立</h1>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setWeekStart(prevWeek(weekStart))}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
+              aria-label="前の週"
+            >
+              <ChevronLeft size={22} strokeWidth={2.5} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekStart(nextWeek(weekStart))}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
+              aria-label="次の週"
+            >
+              <ChevronRight size={22} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+        <p className="text-[15px] text-label-secondary">
+          {shortDate(weekStart)} 〜 {shortDate(weekEndDate)}
           {menu && (
             <span
-              className={`text-[10px] font-medium ${
-                menu.status === "confirmed" ? "text-green" : "text-accent"
+              className={`ml-2 text-[13px] font-medium ${
+                menu.status === "confirmed" ? "text-green" : "text-blue"
               }`}
             >
-              {menu.status === "confirmed" ? "確定済み" : "下書き"}
+              · {menu.status === "confirmed" ? "確定済み" : "下書き"}
             </span>
           )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setWeekStart(nextWeek(weekStart))}
-          className="rounded-xl p-2.5 text-muted transition-colors active:bg-card"
-          aria-label="次の週"
-        >
-          <ChevronRight size={22} />
-        </button>
+        </p>
       </div>
 
-      {/* Calendar body */}
+      {/* Body */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
         </div>
       ) : !menu ? (
         <EmptyWeekState />
       ) : (
-        <div className="px-3">
+        <div className="px-4 pb-4">
           {days.map((date) => {
             const { lunch, dinner } = slotsForDay(date);
             const isToday = date === today;
             const isPast = date < today;
-            const isSun = new Date(date).getDay() === 0;
-            const isSat = new Date(date).getDay() === 6;
+            const dayOfWeek = new Date(date).getDay();
+            const isSun = dayOfWeek === 0;
+            const isSat = dayOfWeek === 6;
 
             return (
-              <div
-                key={date}
-                className={`border-b border-border/50 py-2.5 last:border-0 ${isPast ? "opacity-50" : ""}`}
-              >
-                {/* Day header */}
-                <div className="mb-1.5 flex items-center gap-2 px-1">
+              <div key={date} className={`mt-5 ${isPast ? "opacity-50" : ""}`}>
+                {/* Section header — iOS Settings style */}
+                <div className="mb-1.5 flex items-center gap-1.5 pl-4">
                   <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${
+                    className={`text-[13px] font-semibold uppercase tracking-wide ${
                       isToday
-                        ? "bg-accent text-background"
+                        ? "text-blue"
                         : isSun
-                          ? "text-danger"
+                          ? "text-red"
                           : isSat
                             ? "text-blue"
-                            : "text-muted"
+                            : "text-label-secondary"
                     }`}
                   >
-                    {dayLabel(date)}
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      isToday ? "font-bold text-accent" : "text-muted"
-                    }`}
-                  >
-                    {shortDate(date)}
+                    {dayLabel(date)}曜日 · {shortDate(date)}
                   </span>
                   {isToday && (
-                    <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[9px] font-bold text-accent">
+                    <span className="rounded-full bg-blue px-1.5 text-[10px] font-bold leading-[14px] text-white">
                       TODAY
                     </span>
                   )}
                 </div>
 
-                {/* Meal rows */}
-                <div className="space-y-1">
+                {/* Inset grouped card */}
+                <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
                   <MealSlotRow
                     slot={lunch}
                     mealType="lunch"
@@ -168,13 +160,16 @@ export default function WeeklyCalendar() {
 
 function EmptyWeekState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
-      <p className="text-sm text-muted">この週の献立はまだありません</p>
+    <div className="flex flex-col items-center justify-center gap-5 px-6 py-20 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-fill">
+        <Sparkles size={28} className="text-blue" strokeWidth={1.5} />
+      </div>
+      <p className="text-[17px] text-label-secondary">この週の献立はまだありません</p>
       <Link
         href="/ai"
-        className="flex items-center gap-2 rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-background transition-opacity active:opacity-80"
+        className="flex h-[50px] items-center gap-2 rounded-[12px] bg-blue px-6 text-[17px] font-semibold text-white active:opacity-80 ease-ios transition-opacity"
       >
-        <Sparkles size={16} />
+        <Sparkles size={18} strokeWidth={2} />
         AIに提案してもらう
       </Link>
     </div>

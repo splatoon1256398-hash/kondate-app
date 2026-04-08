@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ShoppingCart, Trash2 } from "lucide-react";
+import { ShoppingCart, Trash2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { shortDate } from "@/lib/utils/date";
@@ -47,7 +47,7 @@ export default function ShoppingList() {
     fetchList();
   }, [fetchList]);
 
-  // Supabase Realtime subscription
+  // Realtime subscription
   useEffect(() => {
     if (!list) return;
 
@@ -65,7 +65,6 @@ export default function ShoppingList() {
         (payload) => {
           setList((prev) => {
             if (!prev) return prev;
-
             switch (payload.eventType) {
               case "UPDATE": {
                 const updated = payload.new as ShoppingItemResponse;
@@ -78,10 +77,7 @@ export default function ShoppingList() {
               }
               case "INSERT": {
                 const inserted = payload.new as ShoppingItemResponse;
-                // 既に存在する場合は追加しない（自分の操作による重複防止）
-                if (prev.items.some((item) => item.id === inserted.id)) {
-                  return prev;
-                }
+                if (prev.items.some((item) => item.id === inserted.id)) return prev;
                 return { ...prev, items: [...prev.items, inserted] };
               }
               case "DELETE": {
@@ -102,16 +98,13 @@ export default function ShoppingList() {
     return () => {
       supabase.removeChannel(channel);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe only when list ID changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [list?.id]);
 
   const handleToggle = useCallback(
     async (item: ShoppingItemResponse) => {
       if (!list) return;
-
       const newChecked = !item.is_checked;
-
-      // Optimistic update
       setList((prev) => {
         if (!prev) return prev;
         return {
@@ -123,7 +116,6 @@ export default function ShoppingList() {
           ),
         };
       });
-
       await fetch(`/api/shopping-lists/${list.id}/items/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -139,14 +131,12 @@ export default function ShoppingList() {
   const handleAdd = useCallback(
     async (input: { name: string; amount?: number; unit?: string; category: ItemCategory }) => {
       if (!list) return;
-
       const res = await fetch(`/api/shopping-lists/${list.id}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
       const json: ApiResponse<ShoppingItemResponse> = await res.json();
-
       if (json.data) {
         setList((prev) => {
           if (!prev) return prev;
@@ -158,17 +148,14 @@ export default function ShoppingList() {
     [list]
   );
 
-  // Group items by category, unchecked first
   const grouped = useMemo(() => {
     if (!list) return [];
-
     const categories = new Map<string, ShoppingItemResponse[]>();
     for (const item of list.items) {
       const cat = item.category || "other";
       if (!categories.has(cat)) categories.set(cat, []);
       categories.get(cat)!.push(item);
     }
-
     return Array.from(categories.entries())
       .sort(([a], [b]) => (CATEGORY_CONFIG[a]?.order ?? 9) - (CATEGORY_CONFIG[b]?.order ?? 9))
       .map(([category, items]) => {
@@ -185,106 +172,105 @@ export default function ShoppingList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
       </div>
     );
   }
 
   if (!list) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 px-4 py-20 text-center">
-        <ShoppingCart size={32} className="text-muted" />
-        <p className="text-sm text-muted">
-          献立を確定すると買い物リストが生成されます
-        </p>
-        <Link
-          href="/menu"
-          className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
-        >
-          献立を見る
-        </Link>
+      <div className="bg-bg-grouped">
+        <div className="px-4 pt-3 pb-2">
+          <h1 className="text-[34px] font-bold leading-[41px] text-label">買い物</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center gap-5 px-6 py-20 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-fill">
+            <ShoppingCart size={28} className="text-blue" strokeWidth={1.5} />
+          </div>
+          <p className="text-[17px] text-label-secondary">
+            献立を確定すると買い物リストが生成されます
+          </p>
+          <Link
+            href="/menu"
+            className="flex h-[50px] items-center gap-2 rounded-[12px] bg-blue px-6 text-[17px] font-semibold text-white active:opacity-80"
+          >
+            <Sparkles size={18} strokeWidth={2} />
+            献立を見る
+          </Link>
+        </div>
       </div>
     );
   }
 
   const totalItems = list.items.length;
   const checkedItems = list.items.filter((i) => i.is_checked).length;
+  const progress = totalItems > 0 ? (checkedItems / totalItems) * 100 : 0;
 
   return (
-    <div className="pb-4">
-      {/* Header */}
-      <div className="px-4 py-3">
+    <div className="bg-bg-grouped pb-4">
+      {/* Large Title */}
+      <div className="px-4 pt-3 pb-2">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">買い物リスト</h1>
-            <p className="text-xs text-muted">
-              {shortDate(list.week_start_date)} の週
-            </p>
-          </div>
+          <h1 className="text-[34px] font-bold leading-[41px] text-label">買い物</h1>
           {checkedItems > 0 && (
             <button
               type="button"
               onClick={async () => {
-                if (!confirm("チェック済みアイテムを全て削除しますか？")) return;
+                if (!confirm("チェック済みアイテムを削除しますか？")) return;
                 const checkedIds = list.items.filter((i) => i.is_checked).map((i) => i.id);
                 setList((prev) => prev ? { ...prev, items: prev.items.filter((i) => !i.is_checked) } : prev);
                 for (const itemId of checkedIds) {
                   await fetch(`/api/shopping-lists/${list.id}/items/${itemId}`, { method: "DELETE" });
                 }
               }}
-              className="flex items-center gap-1 rounded-lg bg-card px-2.5 py-1.5 text-[10px] text-muted transition-colors active:text-danger"
+              className="flex items-center gap-1 text-[15px] text-red active:opacity-60"
             >
-              <Trash2 size={12} />
+              <Trash2 size={15} strokeWidth={2} />
               済を削除
             </button>
           )}
         </div>
+        <p className="text-[15px] text-label-secondary">
+          {shortDate(list.week_start_date)} の週 · {checkedItems}/{totalItems}
+        </p>
         {/* Progress bar */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
-            <div
-              className="h-full rounded-full bg-green transition-all"
-              style={{ width: totalItems > 0 ? `${(checkedItems / totalItems) * 100}%` : "0%" }}
-            />
-          </div>
-          <span className="text-xs text-muted">
-            {checkedItems}/{totalItems}
-          </span>
+        <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-fill-tertiary">
+          <div
+            className="h-full rounded-full bg-green transition-all ease-ios duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
 
-      {/* Category groups */}
-      <div className="space-y-4 px-3">
+      {/* Grouped sections */}
+      <div className="px-4">
         {grouped.map(({ category, config, items }) => (
-          <section key={category}>
-            <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-semibold text-muted">
+          <section key={category} className="mt-5">
+            <h2 className="mb-1.5 flex items-center gap-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
               <span>{config.emoji}</span>
               {config.label}
-              <span className="text-[10px] font-normal">({items.length})</span>
+              <span className="text-[11px] font-normal">({items.length})</span>
             </h2>
-            <div className="space-y-1">
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
               {items.map((item) => (
                 <ShoppingItem key={item.id} item={item} onToggle={handleToggle} />
               ))}
             </div>
           </section>
         ))}
-      </div>
 
-      {/* Add button */}
-      <div className="mt-4 px-3">
-        <ShoppingAddDialog onAdd={handleAdd} />
-      </div>
-
-      {/* Complete button - show when most items are checked */}
-      {totalItems > 0 && checkedItems >= Math.ceil(totalItems * 0.5) && (
-        <div className="mt-3 px-3">
-          <ShoppingComplete
-            shoppingListId={list.id}
-            onComplete={fetchList}
-          />
+        {/* Add */}
+        <div className="mt-5">
+          <ShoppingAddDialog onAdd={handleAdd} />
         </div>
-      )}
+
+        {/* Complete */}
+        {totalItems > 0 && checkedItems >= Math.ceil(totalItems * 0.5) && (
+          <div className="mt-3">
+            <ShoppingComplete shoppingListId={list.id} onComplete={fetchList} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

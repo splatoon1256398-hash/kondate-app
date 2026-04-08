@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, UtensilsCrossed, CheckCircle2, Loader2 } from "lucide-react";
+import { ChefHat, CheckCircle2, Loader2, Sun, Moon, Check } from "lucide-react";
 import { shortDate, dayLabel } from "@/lib/utils/date";
 
 type SlotProposal = {
@@ -25,7 +25,6 @@ type Props = {
 };
 
 export default function MealPlanProposalCard({ slots, confirmed, confirming, onConfirm }: Props) {
-  // Group by date
   const byDate = new Map<string, SlotProposal[]>();
   for (const slot of slots) {
     if (!byDate.has(slot.date)) byDate.set(slot.date, []);
@@ -35,71 +34,72 @@ export default function MealPlanProposalCard({ slots, confirmed, confirming, onC
   const sorted = Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b));
 
   return (
-    <div className="space-y-2 rounded-xl border border-accent/20 bg-accent/5 p-3">
-      <div className="text-xs font-semibold text-accent">献立提案</div>
-      {sorted.map(([date, daySlots]) => (
-        <div key={date} className="flex items-start gap-2">
-          <div className="w-10 shrink-0 text-center">
-            <span className="text-xs font-bold text-muted">{dayLabel(date)}</span>
-            <br />
-            <span className="text-[10px] text-muted">{shortDate(date)}</span>
-          </div>
-          <div className="flex flex-1 gap-1.5">
-            {daySlots
-              .sort((a, b) => (a.meal_type === "lunch" ? -1 : 1) - (b.meal_type === "lunch" ? -1 : 1))
-              .map((slot, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 rounded-md p-1.5 text-xs ${
-                    slot.is_skipped ? "bg-card/50 text-muted" : "bg-card"
-                  }`}
-                >
-                  <div className="flex items-center gap-1 text-[10px] text-muted">
-                    <UtensilsCrossed size={10} />
-                    {slot.meal_type === "lunch" ? "昼" : "夜"} {slot.servings}人
-                  </div>
-                  {slot.is_skipped ? (
-                    <span className="text-muted line-through">{slot.memo || "スキップ"}</span>
-                  ) : slot.recipe ? (
-                    <div className="mt-0.5">
-                      <span className="font-medium">{slot.recipe.title}</span>
-                      {slot.recipe.cook_method === "hotcook" && (
-                        <ChefHat size={10} className="ml-1 inline text-accent" />
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted">未設定</span>
-                  )}
-                </div>
-              ))}
-          </div>
-        </div>
-      ))}
+    <div className="space-y-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-blue">献立提案</div>
 
-      {/* Confirm button */}
+      {/* Days */}
+      <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-secondary">
+        {sorted.map(([date, daySlots]) => (
+          <div key={date} className="px-3 py-2.5">
+            <div className="mb-1.5 text-[12px] font-semibold text-label-secondary">
+              {dayLabel(date)}曜日 · {shortDate(date)}
+            </div>
+            <div className="space-y-1">
+              {daySlots
+                .sort((a, b) => (a.meal_type === "lunch" ? -1 : 1) - (b.meal_type === "lunch" ? -1 : 1))
+                .map((slot, i) => {
+                  const isLunch = slot.meal_type === "lunch";
+                  const Icon = isLunch ? Sun : Moon;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <Icon size={14} className={isLunch ? "text-orange" : "text-indigo"} strokeWidth={1.5} />
+                      {slot.is_skipped ? (
+                        <span className="flex-1 text-[14px] text-label-tertiary line-through">
+                          {slot.memo || "スキップ"}
+                        </span>
+                      ) : slot.recipe ? (
+                        <span className="flex flex-1 items-center gap-1 truncate text-[14px] text-label">
+                          {slot.recipe.title}
+                          {slot.recipe.cook_method === "hotcook" && (
+                            <ChefHat size={11} className="text-blue" strokeWidth={1.5} />
+                          )}
+                        </span>
+                      ) : (
+                        <span className="flex-1 text-[14px] text-label-tertiary">未設定</span>
+                      )}
+                      <span className="text-[11px] text-label-tertiary">{slot.servings}人</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Confirm */}
       {onConfirm && !confirmed && (
         <button
           type="button"
           onClick={onConfirm}
           disabled={confirming}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-accent py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-blue text-[15px] font-semibold text-white active:opacity-80 disabled:opacity-50"
         >
           {confirming ? (
             <>
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={15} className="animate-spin" />
               保存中...
             </>
           ) : (
             <>
-              <CheckCircle2 size={16} />
+              <CheckCircle2 size={15} strokeWidth={2} />
               この献立で確定する
             </>
           )}
         </button>
       )}
       {confirmed && (
-        <div className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-green/10 py-2 text-xs font-medium text-green">
-          <CheckCircle2 size={14} />
+        <div className="flex items-center justify-center gap-1.5 rounded-[10px] bg-green/10 py-2 text-[13px] font-medium text-green">
+          <Check size={14} strokeWidth={2.5} />
           確定済み
         </div>
       )}

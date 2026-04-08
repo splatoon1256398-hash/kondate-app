@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail, CookMethod } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
@@ -168,185 +168,213 @@ export default function RecipeEditForm({ recipeId }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="pb-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <button type="button" onClick={() => router.back()} className="text-muted hover:text-foreground">
-          <ArrowLeft size={20} />
+    <div className="bg-bg-grouped pb-8">
+      {/* Navigation Bar */}
+      <div className="material-bar separator-bottom flex items-center px-2 py-2.5">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-0.5 px-2 text-[17px] text-blue active:opacity-60"
+        >
+          <ChevronLeft size={22} strokeWidth={2.5} />
+          戻る
         </button>
-        <h1 className="flex-1 text-base font-bold">{isNew ? "レシピ作成" : "レシピ編集"}</h1>
+        <h1 className="flex-1 text-center text-[17px] font-semibold text-label">
+          {isNew ? "新規レシピ" : "編集"}
+        </h1>
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="px-2 text-[17px] font-semibold text-blue active:opacity-60 disabled:opacity-30"
         >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          保存
+          {saving ? <Loader2 size={16} className="animate-spin" /> : "保存"}
         </button>
       </div>
 
       {error && (
-        <div className="mx-4 mb-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{error}</div>
+        <div className="mx-4 mt-3 rounded-[10px] bg-red/10 px-3 py-2.5 text-[13px] text-red">{error}</div>
       )}
 
-      <div className="space-y-5 px-4">
-        {/* Title */}
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">タイトル *</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">説明</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-
-        {/* Cook method + servings row */}
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-muted">調理方法</label>
-            <div className="flex gap-1.5">
-              {COOK_METHODS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setCookMethod(m.value)}
-                  className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${
-                    cookMethod === m.value
-                      ? "bg-accent text-background"
-                      : "bg-card text-muted hover:text-foreground"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
+      <div className="mt-3 space-y-5 px-4">
+        {/* Basic info */}
+        <section>
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            基本情報
+          </h2>
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+            <div className="flex min-h-[44px] items-center px-4">
+              <span className="w-20 shrink-0 text-[17px] text-label">タイトル</span>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="必須"
+                className="flex-1 bg-transparent py-3 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+              />
+            </div>
+            <div className="flex min-h-[44px] items-start px-4 py-2">
+              <span className="w-20 shrink-0 pt-1 text-[17px] text-label">説明</span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                placeholder="任意"
+                className="flex-1 resize-none bg-transparent py-1 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+              />
+            </div>
+            <div className="flex min-h-[44px] items-center px-4">
+              <span className="w-20 shrink-0 text-[17px] text-label">人数</span>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={servingsBase}
+                onChange={(e) => setServingsBase(parseInt(e.target.value) || 2)}
+                className="w-20 bg-transparent py-3 text-right text-[17px] text-label focus:outline-none"
+              />
+              <span className="ml-1 text-[15px] text-label-secondary">人分</span>
             </div>
           </div>
-          <div className="w-20">
-            <label className="mb-1 block text-xs font-semibold text-muted">人数</label>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={servingsBase}
-              onChange={(e) => setServingsBase(parseInt(e.target.value) || 2)}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-center text-sm focus:border-accent focus:outline-none"
-            />
+        </section>
+
+        {/* Cook method */}
+        <section>
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            調理方法
+          </h2>
+          <div className="flex gap-1 rounded-[8px] bg-fill-tertiary p-1">
+            {COOK_METHODS.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setCookMethod(m.value)}
+                className={`flex-1 rounded-[6px] py-1.5 text-[13px] font-semibold transition-all ${
+                  cookMethod === m.value
+                    ? "bg-bg-secondary text-label shadow-sm"
+                    : "text-label-secondary"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
-        </div>
+        </section>
 
         {/* Hotcook-specific */}
         {cookMethod === "hotcook" && (
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-muted">メニュー番号</label>
-              <input
-                type="text"
-                value={hotcookMenuNumber}
-                onChange={(e) => setHotcookMenuNumber(e.target.value)}
-                placeholder="例: 001"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
-              />
+          <section>
+            <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+              ホットクック
+            </h2>
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-32 shrink-0 text-[17px] text-label">メニュー番号</span>
+                <input
+                  type="text"
+                  value={hotcookMenuNumber}
+                  onChange={(e) => setHotcookMenuNumber(e.target.value)}
+                  placeholder="例: 001"
+                  className="flex-1 bg-transparent py-3 text-right text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                />
+              </div>
+              <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-32 shrink-0 text-[17px] text-label">まぜ技</span>
+                <input
+                  type="text"
+                  value={hotcookUnit}
+                  onChange={(e) => setHotcookUnit(e.target.value)}
+                  placeholder="あり / なし"
+                  className="flex-1 bg-transparent py-3 text-right text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+                />
+              </div>
             </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-muted">まぜ技ユニット</label>
-              <input
-                type="text"
-                value={hotcookUnit}
-                onChange={(e) => setHotcookUnit(e.target.value)}
-                placeholder="あり / なし"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
-              />
-            </div>
-          </div>
+          </section>
         )}
 
         {/* Time */}
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-muted">下ごしらえ (分)</label>
-            <input
-              type="number"
-              min={0}
-              value={prepTimeMin}
-              onChange={(e) => setPrepTimeMin(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
-            />
+        <section>
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            時間
+          </h2>
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+            <div className="flex min-h-[44px] items-center px-4">
+              <span className="flex-1 text-[17px] text-label">下ごしらえ</span>
+              <input
+                type="number"
+                min={0}
+                value={prepTimeMin}
+                onChange={(e) => setPrepTimeMin(e.target.value)}
+                className="w-16 bg-transparent py-3 text-right text-[17px] text-label focus:outline-none"
+              />
+              <span className="ml-1 text-[15px] text-label-secondary">分</span>
+            </div>
+            <div className="flex min-h-[44px] items-center px-4">
+              <span className="flex-1 text-[17px] text-label">加熱時間</span>
+              <input
+                type="number"
+                min={0}
+                value={cookTimeMin}
+                onChange={(e) => setCookTimeMin(e.target.value)}
+                className="w-16 bg-transparent py-3 text-right text-[17px] text-label focus:outline-none"
+              />
+              <span className="ml-1 text-[15px] text-label-secondary">分</span>
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-muted">加熱時間 (分)</label>
-            <input
-              type="number"
-              min={0}
-              value={cookTimeMin}
-              onChange={(e) => setCookTimeMin(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-        </div>
+        </section>
 
         {/* Ingredients */}
         <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-accent">材料</h2>
+          <div className="mb-1.5 flex items-center justify-between pl-4">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+              材料
+            </h2>
             <button
               type="button"
               onClick={addIngredient}
-              className="flex items-center gap-1 text-xs text-accent hover:opacity-80"
+              className="flex items-center gap-1 text-[13px] font-semibold text-blue active:opacity-60"
             >
-              <Plus size={14} />
+              <Plus size={12} strokeWidth={2.5} />
               追加
             </button>
           </div>
-          <div className="space-y-2">
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
             {ingredients.map((ing, idx) => (
-              <div key={idx} className="flex items-center gap-2">
+              <div key={idx} className="flex items-center gap-2 px-3 py-2">
                 <input
                   type="text"
                   value={ing.name}
                   onChange={(e) => updateIngredient(idx, "name", e.target.value)}
                   placeholder="材料名"
-                  className="flex-[3] rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className="flex-[3] bg-transparent py-2 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
                 />
                 <input
                   type="text"
                   value={ing.amount}
                   onChange={(e) => updateIngredient(idx, "amount", e.target.value)}
                   placeholder="量"
-                  className="flex-1 rounded-lg border border-border bg-background px-2 py-2 text-center text-sm focus:border-accent focus:outline-none"
+                  className="w-12 bg-transparent text-center text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
                 />
                 <input
                   type="text"
                   value={ing.unit}
                   onChange={(e) => updateIngredient(idx, "unit", e.target.value)}
                   placeholder="単位"
-                  className="w-14 rounded-lg border border-border bg-background px-2 py-2 text-center text-sm focus:border-accent focus:outline-none"
+                  className="w-12 bg-transparent text-center text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => removeIngredient(idx)}
-                  className="text-muted hover:text-danger"
+                  className="text-red active:opacity-60"
                   disabled={ingredients.length <= 1}
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={14} strokeWidth={1.5} />
                 </button>
               </div>
             ))}
@@ -355,21 +383,23 @@ export default function RecipeEditForm({ recipeId }: Props) {
 
         {/* Steps */}
         <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-accent">手順</h2>
+          <div className="mb-1.5 flex items-center justify-between pl-4">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+              手順
+            </h2>
             <button
               type="button"
               onClick={addStep}
-              className="flex items-center gap-1 text-xs text-accent hover:opacity-80"
+              className="flex items-center gap-1 text-[13px] font-semibold text-blue active:opacity-60"
             >
-              <Plus size={14} />
+              <Plus size={12} strokeWidth={2.5} />
               追加
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
             {steps.map((step, idx) => (
-              <div key={idx} className="flex gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent mt-2">
+              <div key={idx} className="flex gap-2 px-3 py-2.5">
+                <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue text-[12px] font-bold text-white">
                   {idx + 1}
                 </span>
                 <div className="flex-1 space-y-1">
@@ -378,23 +408,23 @@ export default function RecipeEditForm({ recipeId }: Props) {
                     onChange={(e) => updateStep(idx, "instruction", e.target.value)}
                     placeholder="手順を入力..."
                     rows={2}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className="w-full resize-none rounded-[8px] bg-fill-tertiary px-3 py-1.5 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
                   />
                   <input
                     type="text"
                     value={step.tip}
                     onChange={(e) => updateStep(idx, "tip", e.target.value)}
                     placeholder="コツ・ポイント（任意）"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-accent focus:outline-none"
+                    className="w-full rounded-[8px] bg-fill-tertiary px-3 py-1.5 text-[13px] text-label placeholder:text-label-tertiary focus:outline-none"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => removeStep(idx)}
-                  className="mt-2 text-muted hover:text-danger"
+                  className="mt-2 text-red active:opacity-60"
                   disabled={steps.length <= 1}
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={14} strokeWidth={1.5} />
                 </button>
               </div>
             ))}

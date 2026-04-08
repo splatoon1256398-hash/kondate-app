@@ -4,8 +4,8 @@
   "description": "ふたり暮らし向け週間献立管理アプリ",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f14",
-  "theme_color": "#FF6B35",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
   "orientation": "portrait",
   "icons": [
     {

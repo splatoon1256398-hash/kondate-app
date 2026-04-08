@@ -236,42 +236,45 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   const weekEndDate = days[days.length - 1];
 
   return (
-    <div className="pb-24">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3">
-        <Sparkles size={20} className="text-accent" />
-        <h1 className="text-lg font-bold">AI献立提案</h1>
+    <div className="bg-bg-grouped pb-6">
+      {/* Large Title */}
+      <div className="px-4 pt-3 pb-2">
+        <h1 className="text-[34px] font-bold leading-[41px] text-label">AI提案</h1>
       </div>
 
       <div className="space-y-5 px-4">
         {/* Week selector */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold">対象の週</h2>
-          <div className="flex items-center justify-between rounded-xl bg-card p-2">
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            対象の週
+          </h2>
+          <div className="flex items-center justify-between rounded-[10px] bg-bg-grouped-secondary px-2 py-1">
             <button
               type="button"
               onClick={goToPrevWeek}
-              className="rounded-lg p-2 text-muted transition-colors hover:bg-card-hover hover:text-foreground"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={20} strokeWidth={2.5} />
             </button>
-            <span className="text-sm font-semibold">
+            <span className="text-[17px] font-semibold text-label">
               {shortDate(weekStart)} 〜 {shortDate(weekEndDate)}
             </span>
             <button
               type="button"
               onClick={goToNextWeek}
-              className="rounded-lg p-2 text-muted transition-colors hover:bg-card-hover hover:text-foreground"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={20} strokeWidth={2.5} />
             </button>
           </div>
         </section>
 
-        {/* Cook mode */}
+        {/* Cook mode — Segmented control */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold">調理方法</h2>
-          <div className="grid grid-cols-3 gap-2">
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            調理方法
+          </h2>
+          <div className="flex gap-1 rounded-[8px] bg-fill-tertiary p-1">
             {(
               [
                 { key: "hotcook", label: "ホットクック", icon: ChefHat },
@@ -283,13 +286,13 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                 key={key}
                 type="button"
                 onClick={() => setCookMode(key)}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-xs font-medium transition-all ${
+                className={`flex flex-1 items-center justify-center gap-1 rounded-[6px] py-2 text-[13px] font-semibold transition-all ${
                   cookMode === key
-                    ? "border-accent bg-accent/10 text-accent"
-                    : "border-border bg-card text-muted hover:text-foreground"
+                    ? "bg-bg-secondary text-label shadow-sm"
+                    : "text-label-secondary"
                 }`}
               >
-                <Icon size={20} />
+                <Icon size={14} strokeWidth={1.5} />
                 {label}
               </button>
             ))}
@@ -298,227 +301,208 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
 
         {/* Remaining ingredients */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold">残り食材</h2>
-          <div className="flex flex-wrap gap-1.5">
-            {ingredients.map((name) => (
-              <span
-                key={name}
-                className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-xs text-accent"
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            残り食材
+          </h2>
+          <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+            {ingredients.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {ingredients.map((name) => (
+                  <span
+                    key={name}
+                    className="flex items-center gap-1 rounded-full bg-blue/10 px-2.5 py-1 text-[13px] font-medium text-blue"
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => removeIngredient(name)}
+                      className="ml-0.5 text-blue/60"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="食材名を入力"
+                className="flex-1 rounded-[10px] bg-fill-tertiary px-3 py-2 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={addIngredient}
+                disabled={!inputValue.trim()}
+                className="rounded-[10px] bg-fill px-3 py-2 text-[15px] font-medium text-blue active:bg-fill-secondary disabled:opacity-40"
               >
-                {name}
-                <button
-                  type="button"
-                  onClick={() => removeIngredient(name)}
-                  className="ml-0.5 text-accent/60 hover:text-accent"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="食材名を入力"
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={addIngredient}
-              disabled={!inputValue.trim()}
-              className="flex items-center gap-1 rounded-lg bg-card px-3 py-2 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-40"
-            >
-              <Plus size={14} />
-              追加
-            </button>
+                追加
+              </button>
+            </div>
           </div>
         </section>
 
         {/* Week schedule */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold">食事の予定</h2>
-          <p className="mb-3 text-[11px] text-muted">
-            外食などでスキップする場合はタップしてOFFに
-          </p>
-
-          <div className="space-y-1.5">
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            食事の予定
+          </h2>
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
             {days.map((date) => {
               const daySlots = slots[date];
               return (
-                <div
-                  key={date}
-                  className="flex items-center gap-2 rounded-xl bg-card p-2"
-                >
-                  {/* Day label */}
-                  <div className="w-10 shrink-0 text-center">
-                    <div className="text-xs font-bold text-foreground">
+                <div key={date} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="w-10 shrink-0">
+                    <div className="text-[15px] font-semibold text-label">
                       {dayLabel(date)}
                     </div>
-                    <div className="text-[10px] text-muted">
+                    <div className="text-[11px] text-label-tertiary">
                       {shortDate(date)}
                     </div>
                   </div>
-
-                  {/* Lunch */}
-                  <MealSlotToggle
-                    label="昼"
-                    config={daySlots.lunch}
-                    onToggle={() => toggleSlot(date, "lunch")}
-                    onServingsChange={(s) => setServings(date, "lunch", s)}
-                  />
-
-                  {/* Dinner */}
-                  <MealSlotToggle
-                    label="夜"
-                    config={daySlots.dinner}
-                    onToggle={() => toggleSlot(date, "dinner")}
-                    onServingsChange={(s) => setServings(date, "dinner", s)}
-                  />
+                  <div className="flex flex-1 gap-2">
+                    <MealSlotToggle
+                      label="昼"
+                      config={daySlots.lunch}
+                      onToggle={() => toggleSlot(date, "lunch")}
+                      onServingsChange={(s) => setServings(date, "lunch", s)}
+                    />
+                    <MealSlotToggle
+                      label="夜"
+                      config={daySlots.dinner}
+                      onToggle={() => toggleSlot(date, "dinner")}
+                      onServingsChange={(s) => setServings(date, "dinner", s)}
+                    />
+                  </div>
                 </div>
               );
             })}
           </div>
+          <p className="mt-1.5 pl-4 text-[12px] text-label-tertiary">
+            外食などでスキップする場合はOFFに
+          </p>
         </section>
 
         {/* Recipe requests */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold">食べたいレシピ</h2>
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            食べたいレシピ
+          </h2>
+          <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+            {/* Selected */}
+            {wantRecipes.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {wantRecipes.map((r) => (
+                  <span
+                    key={r.id}
+                    className="flex items-center gap-1 rounded-full bg-green/10 px-2.5 py-1 text-[13px] font-medium text-green"
+                  >
+                    {r.title}
+                    <button
+                      type="button"
+                      onClick={() => setWantRecipes((prev) => prev.filter((x) => x.id !== r.id))}
+                      className="ml-0.5 text-green/60"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
-          {/* Selected recipes */}
-          {wantRecipes.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {wantRecipes.map((r) => (
-                <span
-                  key={r.id}
-                  className="flex items-center gap-1 rounded-full bg-green/10 px-2.5 py-1 text-xs text-green"
-                >
-                  {r.title}
+            {/* Search */}
+            {!showRecipeSearch ? (
+              <button
+                type="button"
+                onClick={() => setShowRecipeSearch(true)}
+                className="flex w-full items-center gap-2 rounded-[10px] bg-fill-tertiary px-3 py-2 text-[15px] text-label-tertiary"
+              >
+                <Search size={14} strokeWidth={2} />
+                レシピ名で検索
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-label-tertiary"
+                    strokeWidth={2}
+                  />
+                  <input
+                    type="text"
+                    value={recipeSearch}
+                    onChange={(e) => setRecipeSearch(e.target.value)}
+                    placeholder="レシピ名で検索..."
+                    autoFocus
+                    className="w-full rounded-[10px] bg-fill-tertiary py-2 pl-8 pr-8 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
+                  />
                   <button
                     type="button"
-                    onClick={() =>
-                      setWantRecipes((prev) => prev.filter((x) => x.id !== r.id))
-                    }
-                    className="ml-0.5 text-green/60 hover:text-green"
+                    onClick={() => {
+                      setShowRecipeSearch(false);
+                      setRecipeSearch("");
+                      setSearchResults([]);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-label-tertiary"
                   >
-                    <X size={12} />
+                    <X size={14} strokeWidth={2.5} />
                   </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Search toggle */}
-          {!showRecipeSearch ? (
-            <button
-              type="button"
-              onClick={() => setShowRecipeSearch(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted transition-colors active:border-accent active:text-accent"
-            >
-              <Search size={14} />
-              レシピを検索して追加
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-                />
-                <input
-                  type="text"
-                  value={recipeSearch}
-                  onChange={(e) => setRecipeSearch(e.target.value)}
-                  placeholder="レシピ名で検索..."
-                  autoFocus
-                  className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-8 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRecipeSearch(false);
-                    setRecipeSearch("");
-                    setSearchResults([]);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Search results */}
-              {searchResults.length > 0 && (
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-card p-1.5">
-                  {searchResults
-                    .filter((r) => !wantRecipes.some((w) => w.id === r.id))
-                    .map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => {
-                          setWantRecipes((prev) => [
-                            ...prev,
-                            { id: r.id, title: r.title },
-                          ]);
-                          setRecipeSearch("");
-                          setSearchResults([]);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-card-hover active:bg-accent/10"
-                      >
-                        <Plus size={14} className="shrink-0 text-accent" />
-                        <span className="flex-1 truncate">{r.title}</span>
-                        {r.is_favorite && (
-                          <Heart
-                            size={10}
-                            className="shrink-0 fill-danger text-danger"
-                          />
-                        )}
-                        {r.cook_method === "hotcook" && (
-                          <ChefHat size={12} className="shrink-0 text-accent" />
-                        )}
-                      </button>
-                    ))}
                 </div>
-              )}
-
-              {recipeSearch.trim() && searchResults.length === 0 && (
-                <p className="px-2 text-xs text-muted">該当なし</p>
-              )}
-            </div>
-          )}
+                {searchResults.length > 0 && (
+                  <div className="cell-separator max-h-60 overflow-y-auto rounded-[10px] bg-bg-secondary">
+                    {searchResults
+                      .filter((r) => !wantRecipes.some((w) => w.id === r.id))
+                      .map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            setWantRecipes((prev) => [...prev, { id: r.id, title: r.title }]);
+                            setRecipeSearch("");
+                            setSearchResults([]);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] active:bg-fill"
+                        >
+                          <Plus size={14} className="shrink-0 text-blue" strokeWidth={2.5} />
+                          <span className="flex-1 truncate">{r.title}</span>
+                          {r.is_favorite && <Heart size={10} className="shrink-0 fill-red text-red" />}
+                          {r.cook_method === "hotcook" && (
+                            <ChefHat size={12} className="shrink-0 text-blue" strokeWidth={1.5} />
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Popular ranking */}
           {popular.length > 0 && (
             <div className="mt-3">
-              <h3 className="mb-1.5 text-[11px] font-semibold text-orange">
+              <h3 className="mb-1.5 pl-4 text-[12px] font-semibold uppercase tracking-wide text-orange">
                 人気ランキング
               </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {popular
-                  .filter((r) => !wantRecipes.some((w) => w.id === r.id))
-                  .slice(0, 10)
-                  .map((r, i) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() =>
-                        setWantRecipes((prev) => [
-                          ...prev,
-                          { id: r.id, title: r.title },
-                        ])
-                      }
-                      className="flex items-center gap-1 rounded-full border border-orange/20 bg-orange/5 px-2.5 py-1.5 text-[11px] transition-colors active:border-orange active:bg-orange/10"
-                    >
-                      <span className="text-[9px] font-bold text-orange">{i + 1}</span>
-                      {r.cook_method === "hotcook" && (
-                        <ChefHat size={10} className="text-accent" />
-                      )}
-                      <span className="max-w-[9rem] truncate">{r.title}</span>
-                      <Plus size={10} className="text-muted" />
-                    </button>
-                  ))}
+              <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {popular
+                    .filter((r) => !wantRecipes.some((w) => w.id === r.id))
+                    .slice(0, 10)
+                    .map((r, i) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setWantRecipes((prev) => [...prev, { id: r.id, title: r.title }])}
+                        className="flex items-center gap-1 rounded-full bg-orange/10 px-2.5 py-1 text-[13px] font-medium text-orange active:bg-orange/20"
+                      >
+                        <span className="text-[10px] font-bold">{i + 1}</span>
+                        <span className="max-w-[10rem] truncate">{r.title}</span>
+                      </button>
+                    ))}
+                </div>
               </div>
             </div>
           )}
@@ -526,60 +510,55 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
           {/* AI Recommended */}
           {recommended.length > 0 && (
             <div className="mt-3">
-              <h3 className="mb-1.5 text-[11px] font-semibold text-accent">
+              <h3 className="mb-1.5 pl-4 text-[12px] font-semibold uppercase tracking-wide text-purple">
                 AIおすすめ
               </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {recommended
-                  .filter((r) => !wantRecipes.some((w) => w.id === r.id))
-                  .filter((r) => !popular.some((p) => p.id === r.id))
-                  .slice(0, 10)
-                  .map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() =>
-                        setWantRecipes((prev) => [
-                          ...prev,
-                          { id: r.id, title: r.title },
-                        ])
-                      }
-                      className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1.5 text-[11px] transition-colors active:border-accent active:bg-accent/10"
-                    >
-                      {r.is_favorite && (
-                        <Heart size={10} className="fill-danger text-danger" />
-                      )}
-                      {r.cook_method === "hotcook" && (
-                        <ChefHat size={10} className="text-accent" />
-                      )}
-                      <span className="max-w-[9rem] truncate">{r.title}</span>
-                      <Plus size={10} className="text-muted" />
-                    </button>
-                  ))}
+              <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {recommended
+                    .filter((r) => !wantRecipes.some((w) => w.id === r.id))
+                    .filter((r) => !popular.some((p) => p.id === r.id))
+                    .slice(0, 10)
+                    .map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setWantRecipes((prev) => [...prev, { id: r.id, title: r.title }])}
+                        className="flex items-center gap-1 rounded-full bg-purple/10 px-2.5 py-1 text-[13px] font-medium text-purple active:bg-purple/20"
+                      >
+                        {r.is_favorite && <Heart size={10} className="fill-red text-red" />}
+                        <span className="max-w-[10rem] truncate">{r.title}</span>
+                      </button>
+                    ))}
+                </div>
               </div>
             </div>
           )}
         </section>
 
-        {/* Additional notes */}
+        {/* Notes */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold">メモ</h2>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="作り置き希望、苦手な食材など..."
-            rows={2}
-            className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-          />
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            メモ
+          </h2>
+          <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="作り置き希望、苦手な食材など..."
+              rows={3}
+              className="w-full resize-none rounded-[10px] bg-fill-tertiary px-3 py-2 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
+            />
+          </div>
         </section>
 
-        {/* Submit button */}
+        {/* Submit */}
         <button
           type="button"
           onClick={handleSubmit}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 active:opacity-80"
+          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[12px] bg-blue text-[17px] font-semibold text-white active:opacity-80 ease-ios transition-opacity"
         >
-          <Sparkles size={16} />
+          <Sparkles size={18} strokeWidth={2} />
           献立を提案してもらう
         </button>
       </div>
@@ -598,53 +577,44 @@ function MealSlotToggle({
   onToggle: () => void;
   onServingsChange: (s: number) => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={config.enabled ? undefined : onToggle}
-      className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-2 transition-all ${
-        config.enabled
-          ? "bg-accent/10 border border-accent/30"
-          : "bg-card/50 border border-dashed border-border active:border-accent"
-      }`}
-    >
-      {/* Label + toggle */}
-      <div className="flex w-full items-center justify-between">
-        <span className={`text-xs font-semibold ${config.enabled ? "text-accent" : "text-muted"}`}>
-          {label}
-        </span>
-        {config.enabled && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            className="text-[10px] text-muted active:text-danger"
-          >
-            OFF
-          </button>
-        )}
-      </div>
+  if (!config.enabled) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex flex-1 items-center justify-center rounded-[8px] border border-dashed border-separator py-2 text-[12px] font-medium text-label-tertiary active:bg-fill"
+      >
+        {label} OFF
+      </button>
+    );
+  }
 
-      {config.enabled ? (
-        /* Servings selector */
-        <div className="flex w-full gap-1">
-          {[1, 2].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onServingsChange(n); }}
-              className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition-colors ${
-                config.servings === n
-                  ? "bg-accent text-background"
-                  : "bg-card text-muted active:text-foreground"
-              }`}
-            >
-              {n}人
-            </button>
-          ))}
-        </div>
-      ) : (
-        <span className="text-[10px] text-muted">タップで追加</span>
-      )}
-    </button>
+  return (
+    <div className="flex flex-1 items-center gap-1 rounded-[8px] bg-fill-tertiary p-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] text-[10px] font-semibold text-label-secondary"
+        aria-label="OFF"
+      >
+        {label}
+      </button>
+      <div className="flex flex-1 gap-0.5">
+        {[1, 2].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onServingsChange(n)}
+            className={`flex-1 rounded-[6px] py-1.5 text-[12px] font-semibold transition-colors ${
+              config.servings === n
+                ? "bg-blue text-white"
+                : "text-label-secondary active:bg-fill"
+            }`}
+          >
+            {n}人
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

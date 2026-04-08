@@ -1,41 +1,169 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0f0f14;
-  --foreground: #e4e4e7;
-  --card: #1a1a24;
-  --card-hover: #22222e;
-  --border: #2a2a3a;
-  --muted: #71717a;
-  --accent-purple: #a78bfa;
-  --accent-purple-dim: #7c5cbf;
-  --accent-blue: #60a5fa;
-  --accent-green: #4ade80;
-  --accent-orange: #fb923c;
-  --danger: #f87171;
+  /* Backgrounds */
+  --system-background: #FFFFFF;
+  --secondary-system-background: #F2F2F7;
+  --tertiary-system-background: #FFFFFF;
+  --system-grouped-background: #F2F2F7;
+  --secondary-grouped-background: #FFFFFF;
+  --tertiary-grouped-background: #F2F2F7;
+
+  /* Labels */
+  --label: rgba(0, 0, 0, 1);
+  --secondary-label: rgba(60, 60, 67, 0.6);
+  --tertiary-label: rgba(60, 60, 67, 0.3);
+  --quaternary-label: rgba(60, 60, 67, 0.18);
+
+  /* Separators */
+  --separator: rgba(60, 60, 67, 0.29);
+  --opaque-separator: #C6C6C8;
+
+  /* Fills */
+  --system-fill: rgba(120, 120, 128, 0.2);
+  --secondary-fill: rgba(120, 120, 128, 0.16);
+  --tertiary-fill: rgba(120, 120, 128, 0.12);
+  --quaternary-fill: rgba(120, 120, 128, 0.08);
+
+  /* Tints (Light) */
+  --system-blue: #007AFF;
+  --system-green: #34C759;
+  --system-red: #FF3B30;
+  --system-orange: #FF9500;
+  --system-yellow: #FFCC00;
+  --system-purple: #AF52DE;
+  --system-pink: #FF2D55;
+  --system-teal: #5AC8FA;
+  --system-indigo: #5856D6;
+
+  /* Grays */
+  --system-gray: #8E8E93;
+  --system-gray2: #AEAEB2;
+  --system-gray3: #C7C7CC;
+  --system-gray4: #D1D1D6;
+  --system-gray5: #E5E5EA;
+  --system-gray6: #F2F2F7;
+
+  /* App tint */
+  --tint: var(--system-blue);
+
+  /* User colors */
+  --user-ren: var(--system-blue);
+  --user-akane: var(--system-green);
+
+  /* Material (glass) */
+  --material-bar: rgba(255, 255, 255, 0.72);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Backgrounds */
+    --system-background: #000000;
+    --secondary-system-background: #1C1C1E;
+    --tertiary-system-background: #2C2C2E;
+    --system-grouped-background: #000000;
+    --secondary-grouped-background: #1C1C1E;
+    --tertiary-grouped-background: #2C2C2E;
+
+    /* Labels */
+    --label: rgba(255, 255, 255, 1);
+    --secondary-label: rgba(235, 235, 245, 0.6);
+    --tertiary-label: rgba(235, 235, 245, 0.3);
+    --quaternary-label: rgba(235, 235, 245, 0.18);
+
+    /* Separators */
+    --separator: rgba(84, 84, 88, 0.6);
+    --opaque-separator: #38383A;
+
+    /* Fills */
+    --system-fill: rgba(120, 120, 128, 0.36);
+    --secondary-fill: rgba(120, 120, 128, 0.32);
+    --tertiary-fill: rgba(120, 120, 128, 0.24);
+    --quaternary-fill: rgba(120, 120, 128, 0.18);
+
+    /* Tints (Dark) */
+    --system-blue: #0A84FF;
+    --system-green: #30D158;
+    --system-red: #FF453A;
+    --system-orange: #FF9F0A;
+    --system-yellow: #FFD60A;
+    --system-purple: #BF5AF2;
+    --system-pink: #FF375F;
+    --system-teal: #64D2FF;
+    --system-indigo: #5E5CE6;
+
+    /* Grays */
+    --system-gray: #8E8E93;
+    --system-gray2: #636366;
+    --system-gray3: #48484A;
+    --system-gray4: #3A3A3C;
+    --system-gray5: #2C2C2E;
+    --system-gray6: #1C1C1E;
+
+    /* Material (glass) */
+    --material-bar: rgba(0, 0, 0, 0.72);
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-hover: var(--card-hover);
-  --color-border: var(--border);
-  --color-muted: var(--muted);
-  --color-accent: var(--accent-purple);
-  --color-accent-dim: var(--accent-purple-dim);
-  --color-blue: var(--accent-blue);
-  --color-green: var(--accent-green);
-  --color-orange: var(--accent-orange);
-  --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Semantic colors available as Tailwind utilities */
+  --color-bg-primary: var(--system-background);
+  --color-bg-secondary: var(--secondary-system-background);
+  --color-bg-tertiary: var(--tertiary-system-background);
+  --color-bg-grouped: var(--system-grouped-background);
+  --color-bg-grouped-secondary: var(--secondary-grouped-background);
+  --color-bg-grouped-tertiary: var(--tertiary-grouped-background);
+
+  --color-label: var(--label);
+  --color-label-secondary: var(--secondary-label);
+  --color-label-tertiary: var(--tertiary-label);
+  --color-label-quaternary: var(--quaternary-label);
+
+  --color-separator: var(--separator);
+  --color-opaque-separator: var(--opaque-separator);
+
+  --color-fill: var(--system-fill);
+  --color-fill-secondary: var(--secondary-fill);
+  --color-fill-tertiary: var(--tertiary-fill);
+  --color-fill-quaternary: var(--quaternary-fill);
+
+  --color-blue: var(--system-blue);
+  --color-green: var(--system-green);
+  --color-red: var(--system-red);
+  --color-orange: var(--system-orange);
+  --color-yellow: var(--system-yellow);
+  --color-purple: var(--system-purple);
+  --color-pink: var(--system-pink);
+  --color-teal: var(--system-teal);
+  --color-indigo: var(--system-indigo);
+
+  --color-gray: var(--system-gray);
+  --color-gray2: var(--system-gray2);
+  --color-gray3: var(--system-gray3);
+  --color-gray4: var(--system-gray4);
+  --color-gray5: var(--system-gray5);
+  --color-gray6: var(--system-gray6);
+
+  --color-tint: var(--tint);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+html, body {
+  height: 100%;
+  background: var(--system-grouped-background);
+  color: var(--label);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* iOS-style spring animation curve */
+.ease-ios {
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* Line clamp utility */
@@ -46,7 +174,14 @@ body {
   overflow: hidden;
 }
 
-/* Safe area for mobile bottom nav */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Safe areas */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
@@ -54,4 +189,38 @@ body {
   .pb-safe-nav {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* iOS material (frosted glass) */
+.material-bar {
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: var(--material-bar);
+}
+
+/* Hairline separator (0.33px = device pixel on retina) */
+.separator-top {
+  box-shadow: inset 0 0.33px 0 0 var(--separator);
+}
+.separator-bottom {
+  box-shadow: inset 0 -0.33px 0 0 var(--separator);
+}
+
+/* Inset grouped list separator between cells */
+.cell-separator > * + * {
+  border-top: 0.33px solid var(--separator);
+}
+
+/* Remove tap highlight on iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Disable text selection on buttons */
+button {
+  -webkit-user-select: none;
+  user-select: none;
 }

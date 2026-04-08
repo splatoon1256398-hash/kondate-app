@@ -14,7 +14,6 @@ export default function CookingMode({ recipeId }: Props) {
   const router = useRouter();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  // step -1 = ingredients page, 0..n-1 = recipe steps
   const [step, setStep] = useState(-1);
   const [touchStart, setTouchStart] = useState(0);
   const [consumed, setConsumed] = useState(false);
@@ -30,7 +29,6 @@ export default function CookingMode({ recipeId }: Props) {
     load();
   }, [recipeId]);
 
-  // Wake Lock API - prevent screen sleep
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
     async function requestWakeLock() {
@@ -38,16 +36,12 @@ export default function CookingMode({ recipeId }: Props) {
         if ("wakeLock" in navigator) {
           wakeLock = await navigator.wakeLock.request("screen");
         }
-      } catch {
-        // Wake Lock not supported or denied
-      }
+      } catch { /* noop */ }
     }
     requestWakeLock();
 
     function handleVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        requestWakeLock();
-      }
+      if (document.visibilityState === "visible") requestWakeLock();
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -58,9 +52,8 @@ export default function CookingMode({ recipeId }: Props) {
   }, []);
 
   const totalSteps = recipe?.steps.length ?? 0;
-  // total pages = ingredients page + steps
   const totalPages = totalSteps + 1;
-  const currentPage = step + 1; // 0-indexed page (0=ingredients, 1..n=steps)
+  const currentPage = step + 1;
 
   const goNext = useCallback(() => {
     setStep((s) => Math.min(s + 1, totalSteps - 1));
@@ -87,20 +80,20 @@ export default function CookingMode({ recipeId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      <div className="flex min-h-dvh items-center justify-center bg-bg-primary">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue border-t-transparent" />
       </div>
     );
   }
 
   if (!recipe || totalSteps === 0) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-        <p className="text-muted">手順が登録されていません</p>
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg-primary px-4 text-center">
+        <p className="text-[15px] text-label-secondary">手順が登録されていません</p>
         <button
           type="button"
           onClick={() => router.back()}
-          className="rounded-lg bg-card px-6 py-2 text-sm text-foreground"
+          className="rounded-[10px] bg-fill px-6 py-2.5 text-[15px] text-blue active:bg-fill-secondary"
         >
           戻る
         </button>
@@ -113,105 +106,105 @@ export default function CookingMode({ recipeId }: Props) {
 
   return (
     <div
-      className="flex min-h-dvh flex-col bg-background select-none"
+      className="flex min-h-dvh flex-col bg-bg-primary select-none"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Progress bar - top of screen */}
+      <div className="h-[3px] w-full bg-fill-tertiary">
+        <div
+          className="h-full bg-blue transition-all duration-300 ease-ios"
+          style={{ width: `${((currentPage + 1) / totalPages) * 100}%` }}
+        />
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-3 pt-safe">
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-muted transition-colors active:bg-card-hover"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-fill-tertiary text-label active:bg-fill"
         >
-          <X size={20} />
+          <X size={20} strokeWidth={2} />
         </button>
         <div className="text-center">
-          <div className="text-xs text-muted">{recipe.title}</div>
-          <div className="text-sm font-bold text-foreground">
+          <div className="line-clamp-1 max-w-[200px] text-[12px] text-label-tertiary">
+            {recipe.title}
+          </div>
+          <div className="text-[15px] font-semibold text-label">
             {isIngredientsPage ? "材料" : `${step + 1} / ${totalSteps}`}
           </div>
         </div>
-        {/* Toggle ingredients overlay (on step pages) */}
         {!isIngredientsPage ? (
           <button
             type="button"
             onClick={() => setShowIngredients(!showIngredients)}
             className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
               showIngredients
-                ? "bg-accent text-background"
-                : "bg-card text-muted active:bg-card-hover"
+                ? "bg-blue text-white"
+                : "bg-fill-tertiary text-label active:bg-fill"
             }`}
+            aria-label="材料一覧"
           >
-            <ListOrdered size={18} />
+            <ListOrdered size={18} strokeWidth={1.5} />
           </button>
         ) : (
           <div className="w-10" />
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="mx-4 h-1 overflow-hidden rounded-full bg-border">
-        <div
-          className="h-full rounded-full bg-accent transition-all duration-300"
-          style={{ width: `${((currentPage + 1) / totalPages) * 100}%` }}
-        />
-      </div>
-
       {/* Hotcook info bar */}
       {recipe.cook_method === "hotcook" && (
-        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-accent/10 px-3 py-2">
-          <ChefHat size={16} className="shrink-0 text-accent" />
-          <div className="flex flex-wrap gap-x-3 text-xs text-accent">
+        <div className="mx-4 mt-2 flex items-center gap-2 rounded-[10px] bg-blue/10 px-3 py-2.5">
+          <ChefHat size={16} className="shrink-0 text-blue" strokeWidth={1.5} />
+          <div className="flex flex-wrap gap-x-3 text-[13px] font-medium text-blue">
             {recipe.hotcook_menu_number && (
               <span className="font-semibold">No.{recipe.hotcook_menu_number}</span>
             )}
-            {recipe.hotcook_unit && (
-              <span>まぜ技: {recipe.hotcook_unit}</span>
-            )}
+            {recipe.hotcook_unit && <span>まぜ技: {recipe.hotcook_unit}</span>}
           </div>
         </div>
       )}
 
-      {/* Content area */}
+      {/* Content */}
       <div className="flex flex-1 flex-col overflow-y-auto px-5 py-6">
         {isIngredientsPage ? (
-          /* ===== Ingredients page ===== */
           <div>
-            <h2 className="mb-4 text-center text-lg font-bold text-accent">
+            <h2 className="mb-4 text-center text-[20px] font-semibold text-label">
               材料（{recipe.servings_base}人分）
             </h2>
-            <div className="space-y-2">
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
               {recipe.ingredients.map((ing) => (
                 <div
                   key={ing.id}
-                  className="flex items-baseline justify-between rounded-lg bg-card px-4 py-3"
+                  className="flex min-h-[44px] items-center justify-between px-4 py-2.5"
                 >
-                  <span className="text-base">{ing.name}</span>
-                  <span className="ml-3 shrink-0 text-sm text-muted">
+                  <span className="text-[17px] text-label">{ing.name}</span>
+                  <span className="text-[15px] text-label-secondary">
                     {ing.amount} {ing.unit}
                   </span>
                 </div>
               ))}
             </div>
             {recipe.ingredients.length === 0 && (
-              <p className="mt-8 text-center text-sm text-muted">材料が登録されていません</p>
+              <p className="mt-8 text-center text-[15px] text-label-tertiary">
+                材料が登録されていません
+              </p>
             )}
           </div>
         ) : showIngredients ? (
-          /* ===== Ingredients overlay on step page ===== */
           <div>
-            <h2 className="mb-3 text-center text-sm font-semibold text-accent">
+            <h2 className="mb-3 text-center text-[15px] font-semibold text-label-secondary">
               材料一覧（{recipe.servings_base}人分）
             </h2>
-            <div className="space-y-1.5">
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
               {recipe.ingredients.map((ing) => (
                 <div
                   key={ing.id}
-                  className="flex items-baseline justify-between rounded-lg bg-card px-3 py-2"
+                  className="flex min-h-[40px] items-center justify-between px-3 py-2"
                 >
-                  <span className="text-sm">{ing.name}</span>
-                  <span className="ml-2 shrink-0 text-xs text-muted">
+                  <span className="text-[15px] text-label">{ing.name}</span>
+                  <span className="text-[13px] text-label-secondary">
                     {ing.amount} {ing.unit}
                   </span>
                 </div>
@@ -219,16 +212,15 @@ export default function CookingMode({ recipeId }: Props) {
             </div>
           </div>
         ) : (
-          /* ===== Step content ===== */
           <div className="flex flex-1 flex-col items-center justify-center">
-            <p className="text-center text-xl font-medium leading-relaxed">
+            <p className="text-center text-[28px] font-medium leading-[34px] text-label">
               {recipe.steps[step].instruction}
             </p>
 
             {recipe.steps[step].tip && (
-              <div className="mt-6 flex items-start gap-2 rounded-xl bg-orange/10 px-4 py-3">
-                <Lightbulb size={18} className="mt-0.5 shrink-0 text-orange" />
-                <p className="text-sm text-orange">{recipe.steps[step].tip}</p>
+              <div className="mt-8 flex max-w-md items-start gap-2 rounded-[14px] bg-orange/10 px-4 py-3">
+                <Lightbulb size={18} className="mt-0.5 shrink-0 text-orange" strokeWidth={1.5} />
+                <p className="text-[15px] text-orange">{recipe.steps[step].tip}</p>
               </div>
             )}
           </div>
@@ -241,27 +233,27 @@ export default function CookingMode({ recipeId }: Props) {
           type="button"
           onClick={goPrev}
           disabled={isIngredientsPage}
-          className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-card text-sm font-semibold text-foreground transition-colors active:bg-card-hover disabled:opacity-30"
+          className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-[12px] bg-fill text-[17px] font-semibold text-blue active:bg-fill-secondary disabled:opacity-30"
         >
-          <ChevronLeft size={20} />
+          <ChevronLeft size={22} strokeWidth={2.5} />
           {step === 0 ? "材料" : "前へ"}
         </button>
         {!isLastStep ? (
           <button
             type="button"
             onClick={goNext}
-            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-accent text-sm font-semibold text-background transition-opacity active:opacity-80"
+            className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-[12px] bg-blue text-[17px] font-semibold text-white active:opacity-80"
           >
             {isIngredientsPage ? "手順へ" : "次へ"}
-            <ChevronRight size={20} />
+            <ChevronRight size={22} strokeWidth={2.5} />
           </button>
         ) : consumed ? (
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-green text-sm font-semibold text-background transition-opacity active:opacity-80"
+            className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-[12px] bg-green text-[17px] font-semibold text-white active:opacity-80"
           >
-            <Check size={20} />
+            <Check size={20} strokeWidth={2.5} />
             完了
           </button>
         ) : (
@@ -275,7 +267,7 @@ export default function CookingMode({ recipeId }: Props) {
               });
               setConsumed(true);
             }}
-            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-green text-sm font-semibold text-background transition-opacity active:opacity-80"
+            className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-[12px] bg-green text-[17px] font-semibold text-white active:opacity-80"
           >
             作った！
           </button>

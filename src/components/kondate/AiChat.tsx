@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Send, Sparkles, Loader2, ShoppingCart, ArrowLeft } from "lucide-react";
+import { Send, Sparkles, Loader2, ShoppingCart, ArrowLeft, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import type { ChatMessage, SSEEvent } from "@/types/meal-plan";
 import type { ApiResponse } from "@/types/common";
@@ -269,26 +269,28 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
   // Initial "start chat" state
   if (!started) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 px-4 py-20 text-center">
-        <Sparkles size={32} className="text-accent" />
-        <p className="text-sm text-muted">以下の内容でAIに献立を提案してもらいます</p>
-        <div className="w-full max-w-sm rounded-xl bg-card p-4 text-left text-sm">
+      <div className="flex flex-col items-center justify-center gap-5 px-6 py-16 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue/10">
+          <Sparkles size={28} className="text-blue" strokeWidth={1.5} />
+        </div>
+        <p className="text-[15px] text-label-secondary">以下の内容でAIに献立を提案してもらいます</p>
+        <div className="w-full max-w-sm whitespace-pre-wrap rounded-[10px] bg-bg-grouped-secondary p-4 text-left text-[15px] text-label">
           {initialMessage}
         </div>
         <button
           type="button"
           onClick={handleStart}
-          className="flex items-center gap-2 rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+          className="flex h-[50px] items-center gap-2 rounded-[12px] bg-blue px-6 text-[17px] font-semibold text-white active:opacity-80"
         >
-          <Sparkles size={16} />
+          <Sparkles size={18} strokeWidth={2} />
           提案を開始する
         </button>
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 text-xs text-muted hover:text-foreground"
+          className="flex items-center gap-1 text-[15px] text-blue active:opacity-60"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={14} strokeWidth={2} />
           入力に戻る
         </button>
       </div>
@@ -296,24 +298,31 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-        <button type="button" onClick={onBack} className="text-muted hover:text-foreground">
-          <ArrowLeft size={18} />
+    <div className="flex h-[calc(100dvh-49px-env(safe-area-inset-bottom))] flex-col bg-bg-primary">
+      {/* Navigation Bar */}
+      <div className="material-bar separator-bottom flex items-center px-4 py-2.5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-0.5 text-[17px] text-blue active:opacity-60"
+        >
+          <ChevronLeft size={22} strokeWidth={2.5} />
+          戻る
         </button>
-        <Sparkles size={16} className="text-accent" />
-        <span className="text-sm font-semibold">献立を考えよう</span>
+        <div className="flex flex-1 items-center justify-center gap-1.5">
+          <Sparkles size={14} className="text-blue" strokeWidth={2} />
+          <span className="text-[17px] font-semibold text-label">AI献立</span>
+        </div>
+        <div className="w-12" />
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.map((msg) => (
           <div key={msg.id}>
             <AiChatBubble role={msg.role}>
               {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
 
-              {/* Proposal card */}
               {msg.proposal && (
                 <MealPlanProposalCard
                   weekStartDate={msg.proposal.week_start_date}
@@ -328,20 +337,18 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
                 />
               )}
 
-              {/* Save confirmation */}
               {msg.savedMenuId && (
-                <div className="mt-2 rounded-lg bg-green/10 px-3 py-2 text-xs text-green">
-                  献立を保存しました
+                <div className="mt-2 rounded-[10px] bg-green/10 px-3 py-2 text-[13px] text-green">
+                  ✓ 献立を保存しました
                 </div>
               )}
 
-              {/* Shopping list link */}
               {msg.shoppingListCreated && (
                 <Link
                   href="/shopping"
-                  className="mt-2 flex items-center gap-1.5 rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
+                  className="mt-2 flex items-center gap-1.5 rounded-[10px] bg-blue/10 px-3 py-2 text-[13px] font-medium text-blue active:bg-blue/20"
                 >
-                  <ShoppingCart size={14} />
+                  <ShoppingCart size={14} strokeWidth={2} />
                   買い物リストを見る
                 </Link>
               )}
@@ -350,30 +357,31 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
         ))}
 
         {streaming && (
-          <div className="flex items-center gap-2 px-2 text-xs text-muted">
+          <div className="flex items-center gap-2 px-2 text-[13px] text-label-secondary">
             <Loader2 size={14} className="animate-spin" />
             考え中...
           </div>
         )}
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="border-t border-border p-3">
-        <div className="flex gap-2">
+      {/* Input bar */}
+      <form onSubmit={handleSubmit} className="material-bar separator-top px-4 py-2 pb-3">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="メッセージを入力..."
+            placeholder="メッセージ"
             disabled={streaming}
-            className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm placeholder:text-muted focus:border-accent focus:outline-none disabled:opacity-50"
+            className="flex-1 rounded-full bg-fill-tertiary px-4 py-2 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!input.trim() || streaming}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue text-white active:opacity-80 disabled:opacity-30"
+            aria-label="送信"
           >
-            <Send size={16} />
+            <Send size={16} strokeWidth={2.5} />
           </button>
         </div>
       </form>

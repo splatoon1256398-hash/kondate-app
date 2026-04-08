@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, ChefHat, Flame, Plus, Filter, Download, Heart, Settings } from "lucide-react";
+import { Search, ChefHat, Flame, Plus, Heart, Settings, ChevronRight, Download } from "lucide-react";
 import Link from "next/link";
 import type { RecipeListItem, CookMethod } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
@@ -14,19 +14,12 @@ const COOK_METHOD_LABELS: Record<CookMethod | "all", string> = {
   other: "その他",
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  ai: "AI",
-  manual: "手動",
-  imported: "インポート",
-};
-
 export default function RecipeList() {
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [cookMethodFilter, setCookMethodFilter] = useState<CookMethod | "all">("all");
   const [favoriteOnly, setFavoriteOnly] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
   const fetchRecipes = useCallback(async () => {
@@ -54,8 +47,7 @@ export default function RecipeList() {
   }, [fetchRecipes]);
 
   return (
-    <div className="pb-6">
-      {/* Import dialog */}
+    <div className="bg-bg-grouped pb-6">
       {showImport && (
         <HotcookImportDialog
           onClose={() => {
@@ -65,137 +57,138 @@ export default function RecipeList() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-lg font-bold">レシピ</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/settings"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted transition-colors hover:text-foreground"
-          >
-            <Settings size={14} />
-          </Link>
-          <button
-            type="button"
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-1 rounded-full border border-accent px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/10"
-          >
-            <Download size={14} />
-            インポート
-          </button>
-          <Link
-            href="/recipes/new"
-            className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90"
-          >
-            <Plus size={14} />
-            新規
-          </Link>
+      {/* Large Title */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between">
+          <h1 className="text-[34px] font-bold leading-[41px] text-label">レシピ</h1>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/settings"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
+              aria-label="設定"
+            >
+              <Settings size={20} strokeWidth={1.5} />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowImport(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
+              aria-label="インポート"
+            >
+              <Download size={20} strokeWidth={1.5} />
+            </button>
+            <Link
+              href="/recipes/new"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-blue active:bg-fill"
+              aria-label="新規"
+            >
+              <Plus size={22} strokeWidth={2} />
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search bar */}
       <div className="px-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="レシピを検索..."
-              className="w-full rounded-xl border border-border bg-background py-2.5 pl-9 pr-4 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setFavoriteOnly(!favoriteOnly)}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
-              favoriteOnly
-                ? "border-danger bg-danger/10 text-danger"
-                : "border-border text-muted hover:text-foreground"
-            }`}
-            aria-label="殿堂入りのみ"
-          >
-            <Heart size={16} fill={favoriteOnly ? "currentColor" : "none"} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
-              cookMethodFilter !== "all"
-                ? "border-accent bg-accent/10 text-accent"
-                : "border-border text-muted hover:text-foreground"
-            }`}
-          >
-            <Filter size={16} />
-          </button>
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-label-tertiary" strokeWidth={2} />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="レシピを検索"
+            className="w-full rounded-[10px] bg-fill-tertiary py-2 pl-9 pr-4 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
+          />
         </div>
 
-        {/* Filters */}
-        {showFilters && (
-          <div className="mt-2 flex gap-1.5">
-            {(Object.keys(COOK_METHOD_LABELS) as (CookMethod | "all")[]).map((method) => (
-              <button
-                key={method}
-                type="button"
-                onClick={() => setCookMethodFilter(method)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  cookMethodFilter === method
-                    ? "bg-accent text-background"
-                    : "bg-card text-muted hover:text-foreground"
-                }`}
-              >
-                {COOK_METHOD_LABELS[method]}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Segmented filter */}
+        <div className="mt-3 flex gap-1 rounded-[8px] bg-fill-tertiary p-1">
+          {(Object.keys(COOK_METHOD_LABELS) as (CookMethod | "all")[]).map((method) => (
+            <button
+              key={method}
+              type="button"
+              onClick={() => setCookMethodFilter(method)}
+              className={`flex-1 rounded-[6px] py-1.5 text-[13px] font-semibold transition-all ${
+                cookMethodFilter === method
+                  ? "bg-bg-secondary text-label shadow-sm"
+                  : "text-label-secondary"
+              }`}
+            >
+              {COOK_METHOD_LABELS[method]}
+            </button>
+          ))}
+        </div>
+
+        {/* Favorite toggle */}
+        <button
+          type="button"
+          onClick={() => setFavoriteOnly(!favoriteOnly)}
+          className={`mt-2 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+            favoriteOnly
+              ? "bg-red/10 text-red"
+              : "bg-fill-tertiary text-label-secondary"
+          }`}
+        >
+          <Heart size={12} fill={favoriteOnly ? "currentColor" : "none"} strokeWidth={2} />
+          殿堂入りのみ
+        </button>
       </div>
 
       {/* List */}
-      <div className="mt-3 space-y-1.5 px-4">
+      <div className="mt-4 px-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
           </div>
         ) : recipes.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted">
+          <div className="py-16 text-center text-[15px] text-label-secondary">
             {query ? "該当するレシピがありません" : "レシピがまだありません"}
           </div>
         ) : (
-          recipes.map((recipe) => (
-            <Link
-              key={recipe.id}
-              href={`/recipes/${recipe.id}`}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-accent/30"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{recipe.title}</span>
-                  {recipe.is_favorite && (
-                    <Heart size={12} className="shrink-0 fill-danger text-danger" />
-                  )}
-                  {recipe.cook_method === "hotcook" && (
-                    <ChefHat size={14} className="shrink-0 text-accent" />
-                  )}
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+            {recipes.map((recipe) => (
+              <Link
+                key={recipe.id}
+                href={`/recipes/${recipe.id}`}
+                className="flex min-h-[60px] items-center gap-3 px-4 py-2.5 active:bg-fill-tertiary transition-colors"
+              >
+                {recipe.image_url ? (
+                  <img
+                    src={recipe.image_url}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-[8px] object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-fill-tertiary">
+                    <ChefHat size={20} className="text-label-tertiary" strokeWidth={1.5} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    {recipe.is_favorite && (
+                      <Heart size={11} className="shrink-0 fill-red text-red" />
+                    )}
+                    <span className="truncate text-[17px] text-label">{recipe.title}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[12px] text-label-tertiary">
+                    {recipe.cook_method === "hotcook" && (
+                      <span className="flex items-center gap-0.5">
+                        <ChefHat size={10} strokeWidth={1.5} />
+                        ホットクック
+                      </span>
+                    )}
+                    {recipe.cook_time_min != null && (
+                      <span className="flex items-center gap-0.5">
+                        <Flame size={10} strokeWidth={1.5} />
+                        {recipe.cook_time_min}分
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted">
-                  {recipe.cook_method === "hotcook" && recipe.hotcook_menu_number && (
-                    <span>No.{recipe.hotcook_menu_number}</span>
-                  )}
-                  {recipe.cook_time_min != null && (
-                    <span className="flex items-center gap-0.5">
-                      <Flame size={10} />
-                      {recipe.cook_time_min}分
-                    </span>
-                  )}
-                  <span className="rounded-full bg-card px-1.5 py-0.5 text-[9px] border border-border">
-                    {SOURCE_LABELS[recipe.source] ?? recipe.source}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))
+                <ChevronRight size={18} className="shrink-0 text-label-tertiary" strokeWidth={2} />
+              </Link>
+            ))}
+          </div>
         )}
       </div>
     </div>
