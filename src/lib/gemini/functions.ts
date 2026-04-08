@@ -57,6 +57,10 @@ const slotSchema = {
     servings: { type: T.INTEGER, description: "人数 1 or 2" },
     is_skipped: { type: T.BOOLEAN, description: "外食等でスキップ" },
     memo: { type: T.STRING },
+    recipe_id: {
+      type: T.STRING,
+      description: "既存DBレシピのID（UUID）。これが指定されている場合、recipeフィールドは省略すること。DBに合うレシピがある場合は必ずこちらを使う。",
+    },
     recipe: recipeSchema,
   },
   required: ["date", "meal_type", "servings"],

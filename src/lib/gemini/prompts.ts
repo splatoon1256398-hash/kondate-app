@@ -10,11 +10,25 @@ export type MealPlanContext = {
     meal_type: "lunch" | "dinner";
     title: string;
   }[];
-  favoriteRecipes: { title: string; cook_method: string }[];
-  pantryItems: { name: string; amount: number | null; unit: string | null }[];
+  favoriteRecipes: { id: string; title: string; cook_method: string }[];
+  pantryItems: {
+    name: string;
+    amount: number | null;
+    unit: string | null;
+    is_staple: boolean;
+  }[];
+  availableRecipes: {
+    id: string;
+    title: string;
+    cook_method: string;
+    cook_time_min: number | null;
+  }[];
 };
 
 export function buildSystemPrompt(context: MealPlanContext): string {
+  const nonStaplePantry = context.pantryItems.filter((i) => !i.is_staple);
+  const stapleItems = context.pantryItems.filter((i) => i.is_staple);
+
   return `あなたはホットクック料理のプロフェッショナルな献立アドバイザーです。
 
 ## 基本ルール
@@ -25,48 +39,72 @@ export function buildSystemPrompt(context: MealPlanContext): string {
 - ユーザーが「確定」「これでOK」等と言うまで save_weekly_menu を呼ばない
 - 提案時は必ず propose_weekly_menu を使って構造化データで返す
 
+## 🔴 重要: レシピ選択ルール（ハイブリッド方式）
+以下の優先順位で献立を組む：
+
+1. **最優先: 既存DBレシピを使用**（写真・材料・手順が既にある）
+   → slotに \`recipe_id\` を返す（\`recipe\` フィールドは空）
+   → 下記「利用可能なレシピDB」から選ぶこと
+
+2. **次善: 新規レシピを生成**（DBに合うものがない場合のみ）
+   → slotに \`recipe\` オブジェクトを返す（title, ingredients, steps 必須）
+   → 調味料の分量も必ず含める（醤油 大さじ1 等）
+   → 「前日の残り丼」「こんにゃく炒め」のような手抜きレシピは禁止
+
+**必ず、DBレシピを優先して選ぶこと。新規生成は最後の手段。**
+
+## 🔴 重要: 冷蔵庫在庫の使い切りルール
+在庫にある食材（特に先週の残り）は **優先的に使い切る** こと：
+${nonStaplePantry.length > 0
+    ? nonStaplePantry.map((i) => `- ${i.name}: ${i.amount ?? "?"}${i.unit ?? ""}`).join("\n")
+    : "（在庫なし）"}
+
+- 上記食材が賞味期限切れる前に使い切るレシピを選ぶ/生成する
+- 特に肉・魚・野菜は早めに使う
+- ${nonStaplePantry.length > 0 ? "上記在庫が消費されるようなレシピを必ず1-2品は組み込むこと" : ""}
+
+## 🔴 重要: 常備品（always in kitchen）
+以下は常備品なので買い物リストには自動で追加されない：
+${stapleItems.length > 0
+    ? stapleItems.map((i) => `- ${i.name}`).join("\n")
+    : "（未登録）"}
+
+## 📋 利用可能なレシピDB（${context.availableRecipes.length}件）
+以下のレシピはDBに登録済み。**recipe_id で参照して使うこと**：
+
+${context.availableRecipes.length > 0
+    ? context.availableRecipes
+        .map((r) => `- [${r.id}] ${r.title}（${r.cook_method}${r.cook_time_min ? `, ${r.cook_time_min}分` : ""}）`)
+        .join("\n")
+    : "（DB空）"}
+
 ## 提案のコツ
 - 同じ食材を複数の献立で活用する（例：大根→煮物＋味噌汁）
 - 作り置きできるものは2日分で提案
 - 調理時間が短いものを昼食に、じっくり系を夕食に
 - 前回と同じメニューは避ける（直近の献立を参照）
 
-## レシピ品質ルール（重要）
-- 「前日の○○丼」「残り物を乗せるだけ」のような手抜きレシピをレシピとして登録しない
-- 「こんにゃく炒め」のような食材1つだけの雑なレシピは作らない
-- 昼食でも最低限ちゃんとした料理名にする（例: 親子丼、焼きうどん、チャーハン）
-- 前日の残りを活用する場合は「麻婆茄子丼」のように独立した料理名にし、材料・手順もちゃんと書く
-- レシピには必ず調味料の分量も含めること（醤油 大さじ1、みりん 大さじ1 等）
-
 ## コンテキスト情報
 - 今日の日付: ${context.today}
 - 提案対象の週: ${context.weekStartDate} 〜 ${context.weekEndDate}
-- ユーザーの入力（残り物・予定）: 会話から読み取る
 
 ## 直近2週間の献立（マンネリ防止）
 ${context.recentMeals.length > 0
     ? context.recentMeals.map(m => `${m.date} ${m.meal_type}: ${m.title}`).join("\n")
-    : "なし（初回利用）"
-  }
+    : "なし（初回利用）"}
 
-## 現在の冷蔵庫在庫
-${context.pantryItems.length > 0
-    ? context.pantryItems.map(i => `- ${i.name}: ${i.amount ?? "?"}${i.unit ?? ""}`).join("\n")
-    : "在庫情報なし"}
-
-在庫にある食材を優先的に使い切る献立を提案すること。
-
-## 殿堂入りレシピ（ユーザーのお気に入り）
+## 殿堂入りレシピ（お気に入り）
 ${context.favoriteRecipes.length > 0
-    ? context.favoriteRecipes.map(r => `- ${r.title}（${r.cook_method}）`).join("\n")
+    ? context.favoriteRecipes.map(r => `- [${r.id}] ${r.title}`).join("\n")
     : "なし"}
 
-ユーザーが「殿堂入りから選んで」「お気に入りから」等と言ったら、このリストから優先的に提案する。
+ユーザーが「殿堂入りから選んで」と言ったら、このリストから優先的に選ぶ。
 
 ## 応答スタイル
 - カジュアルで親しみやすい日本語
 - 「〜はどうですか？」「〜にしましょうか」のような提案型
-- 食材の使い回しポイントを説明する`;
+- 食材の使い回しポイントを説明する
+- 在庫を使い切るポイントも説明する`;
 }
 
 function getNextMonday(dateStr: string): string {
@@ -91,7 +129,12 @@ export async function buildContext(
   const today = formatDate(new Date());
   const twoWeeksAgo = formatDate(new Date(Date.now() - 14 * 86400000));
 
-  const [{ data: recentSlots }, { data: favorites }, { data: pantry }] = await Promise.all([
+  const [
+    { data: recentSlots },
+    { data: favorites },
+    { data: pantry },
+    { data: allRecipes },
+  ] = await Promise.all([
     supabase
       .from("meal_slots")
       .select("date, meal_type, recipes(title)")
@@ -101,20 +144,29 @@ export async function buildContext(
       .order("date", { ascending: false }),
     supabase
       .from("recipes")
-      .select("title, cook_method")
+      .select("id, title, cook_method")
       .eq("is_favorite", true)
-      .limit(20),
+      .limit(30),
     supabase
       .from("pantry_items")
-      .select("name, amount, unit")
+      .select("name, amount, unit, is_staple")
       .order("category"),
+    supabase
+      .from("recipes")
+      .select("id, title, cook_method, cook_time_min")
+      .order("created_at", { ascending: false })
+      .limit(300),
   ]);
 
   return {
     today,
     weekStartDate: overrideWeekStart || getNextMonday(today),
     weekEndDate: overrideWeekStart
-      ? (() => { const d = new Date(overrideWeekStart); d.setDate(d.getDate() + 6); return formatDate(d); })()
+      ? (() => {
+          const d = new Date(overrideWeekStart);
+          d.setDate(d.getDate() + 6);
+          return formatDate(d);
+        })()
       : getNextSunday(today),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recentMeals: (recentSlots || []).map((s: any) => ({
@@ -122,14 +174,38 @@ export async function buildContext(
       meal_type: s.meal_type as "lunch" | "dinner",
       title: (s.recipes as { title: string } | null)?.title || "",
     })),
-    favoriteRecipes: (favorites || []).map((r: { title: string; cook_method: string }) => ({
-      title: r.title,
-      cook_method: r.cook_method,
-    })),
-    pantryItems: (pantry || []).map((i: { name: string; amount: number | null; unit: string | null }) => ({
-      name: i.name,
-      amount: i.amount,
-      unit: i.unit,
-    })),
+    favoriteRecipes: (favorites || []).map(
+      (r: { id: string; title: string; cook_method: string }) => ({
+        id: r.id,
+        title: r.title,
+        cook_method: r.cook_method,
+      })
+    ),
+    pantryItems: (pantry || []).map(
+      (i: {
+        name: string;
+        amount: number | null;
+        unit: string | null;
+        is_staple: boolean;
+      }) => ({
+        name: i.name,
+        amount: i.amount,
+        unit: i.unit,
+        is_staple: i.is_staple ?? false,
+      })
+    ),
+    availableRecipes: (allRecipes || []).map(
+      (r: {
+        id: string;
+        title: string;
+        cook_method: string;
+        cook_time_min: number | null;
+      }) => ({
+        id: r.id,
+        title: r.title,
+        cook_method: r.cook_method,
+        cook_time_min: r.cook_time_min,
+      })
+    ),
   };
 }

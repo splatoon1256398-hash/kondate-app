@@ -10,6 +10,13 @@ export type SlotWithRecipe = {
   } | null;
 };
 
+export type PantryItemLite = {
+  name: string;
+  amount: number | null;
+  unit: string | null;
+  is_staple: boolean;
+};
+
 export type AggregatedItem = {
   name: string;
   totalAmount: number;
@@ -22,10 +29,13 @@ export type AggregatedItem = {
  * - 同一食材名 + 同一単位 → 合算
  * - 同一食材名 + 異なる単位 → 別行
  * - servings比で分量調整
- *
- * confirm API と generate_shopping_list FC の両方から呼ぶ
+ * - pantry在庫を差し引く
+ * - 常備品(is_staple)は除外
  */
-export function aggregateIngredients(slots: SlotWithRecipe[]): AggregatedItem[] {
+export function aggregateIngredients(
+  slots: SlotWithRecipe[],
+  pantry: PantryItemLite[] = []
+): AggregatedItem[] {
   const map = new Map<string, AggregatedItem>();
 
   for (const slot of slots) {
@@ -51,7 +61,27 @@ export function aggregateIngredients(slots: SlotWithRecipe[]): AggregatedItem[] 
     }
   }
 
-  return Array.from(map.values());
+  // Staple names (always excluded)
+  const stapleNames = new Set(
+    pantry.filter((p) => p.is_staple).map((p) => p.name)
+  );
+
+  // Subtract non-staple pantry amounts
+  for (const item of map.values()) {
+    const match = pantry.find(
+      (p) =>
+        !p.is_staple &&
+        p.name === item.name &&
+        (p.unit || "") === (item.unit || "")
+    );
+    if (match && match.amount != null) {
+      item.totalAmount = Math.max(0, item.totalAmount - match.amount);
+    }
+  }
+
+  return Array.from(map.values())
+    .filter((item) => !stapleNames.has(item.name)) // Remove staples
+    .filter((item) => item.totalAmount > 0); // Remove zero/negative
 }
 
 function guessCategory(name: string): string {

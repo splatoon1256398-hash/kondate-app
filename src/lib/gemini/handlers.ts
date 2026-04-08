@@ -41,6 +41,7 @@ const slotSchema = z.object({
   servings: z.number().int().min(1).max(10).default(2),
   is_skipped: z.boolean().default(false),
   memo: z.string().optional(),
+  recipe_id: z.string().uuid().optional(),
   recipe: recipeSchema.optional(),
 });
 
@@ -110,7 +111,20 @@ export async function executeSaveWeeklyMenu(
   for (const slot of args.slots) {
     let recipeId: string | null = null;
 
-    if (slot.recipe && slot.recipe.title && !slot.is_skipped) {
+    // Priority 1: Use existing recipe by ID (hybrid mode — AI chose from DB)
+    if (slot.recipe_id && !slot.is_skipped) {
+      const { data: existing } = await supabase
+        .from("recipes")
+        .select("id")
+        .eq("id", slot.recipe_id)
+        .maybeSingle();
+      if (existing) {
+        recipeId = existing.id;
+      }
+    }
+
+    // Priority 2: Use recipe object (new from AI, or fallback)
+    if (!recipeId && slot.recipe && slot.recipe.title && !slot.is_skipped) {
       // Check existing recipe by title + cook_method for better dedup
       const { data: existing } = await supabase
         .from("recipes")
@@ -191,8 +205,16 @@ export async function executeGenerateShoppingList(
     .eq("is_skipped", false)
     .not("recipe_id", "is", null);
 
-  // 2. Aggregate
-  const aggregatedItems = aggregateIngredients((slots || []) as unknown as SlotWithRecipe[]);
+  // 1.5 Get pantry items (for subtraction + staple exclusion)
+  const { data: pantry } = await supabase
+    .from("pantry_items")
+    .select("name, amount, unit, is_staple");
+
+  // 2. Aggregate (subtracting pantry, excluding staples)
+  const aggregatedItems = aggregateIngredients(
+    (slots || []) as unknown as SlotWithRecipe[],
+    (pantry || []) as Parameters<typeof aggregateIngredients>[1]
+  );
 
   // 3. Delete existing shopping list for this menu (if any)
   await supabase.from("shopping_lists").delete().eq("weekly_menu_id", args.weekly_menu_id);

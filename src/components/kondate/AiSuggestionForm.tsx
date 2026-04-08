@@ -14,6 +14,7 @@ import {
   Heart,
 } from "lucide-react";
 import type { RecipeListItem } from "@/types/recipe";
+import type { PantryItem } from "@/types/pantry";
 import type { ApiResponse } from "@/types/common";
 import {
   getMonday,
@@ -54,7 +55,9 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   const [weekStart, setWeekStart] = useState(() =>
     nextWeek(getMonday(new Date()))
   );
-  const [ingredients, setIngredients] = useState<string[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [prioritizedIds, setPrioritizedIds] = useState<string[]>([]);
+  const [extraIngredients, setExtraIngredients] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [slots, setSlots] = useState<WeekSlots>(() =>
     buildInitialSlots(weekStart)
@@ -71,18 +74,26 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
 
   const days = getWeekDays(weekStart);
 
-  // Fetch recommended + popular recipes on mount
+  // Fetch recommended + popular + pantry on mount
   useEffect(() => {
     async function load() {
       try {
-        const [recRes, popRes] = await Promise.all([
+        const [recRes, popRes, panRes] = await Promise.all([
           fetch("/api/recipes/recommended"),
           fetch("/api/recipes/popular"),
+          fetch("/api/pantry"),
         ]);
         const recJson: ApiResponse<RecipeListItem[]> = await recRes.json();
         const popJson: ApiResponse<RecipeListItem[]> = await popRes.json();
+        const panJson: ApiResponse<PantryItem[]> = await panRes.json();
         if (recJson.data) setRecommended(recJson.data);
         if (popJson.data) setPopular(popJson.data);
+        if (panJson.data) {
+          const nonStaples = panJson.data.filter((i) => !i.is_staple);
+          setPantryItems(nonStaples);
+          // Auto-prioritize all pantry items by default
+          setPrioritizedIds(nonStaples.map((i) => i.id));
+        }
       } catch { /* ignore */ }
     }
     load();
@@ -122,25 +133,31 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
     });
   }, []);
 
-  const addIngredient = useCallback(() => {
+  const addExtraIngredient = useCallback(() => {
     const v = inputValue.trim();
-    if (!v || ingredients.includes(v)) return;
-    setIngredients((prev) => [...prev, v]);
+    if (!v || extraIngredients.includes(v)) return;
+    setExtraIngredients((prev) => [...prev, v]);
     setInputValue("");
-  }, [inputValue, ingredients]);
+  }, [inputValue, extraIngredients]);
 
-  const removeIngredient = useCallback((name: string) => {
-    setIngredients((prev) => prev.filter((i) => i !== name));
+  const removeExtraIngredient = useCallback((name: string) => {
+    setExtraIngredients((prev) => prev.filter((i) => i !== name));
+  }, []);
+
+  const togglePrioritized = useCallback((id: string) => {
+    setPrioritizedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        addIngredient();
+        addExtraIngredient();
       }
     },
-    [addIngredient]
+    [addExtraIngredient]
   );
 
   const toggleSlot = useCallback((date: string, meal: MealType) => {
@@ -181,8 +198,16 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
           : "ホットクック＋コンロ混合";
     parts.push(`調理方法: ${modeLabel}`);
 
-    if (ingredients.length > 0) {
-      parts.push(`冷蔵庫の残り物: ${ingredients.join("、")}`);
+    // Prioritized pantry items
+    const prioritized = pantryItems.filter((p) => prioritizedIds.includes(p.id));
+    if (prioritized.length > 0) {
+      const lines = prioritized.map(
+        (p) => `${p.name}${p.amount != null ? ` ${p.amount}${p.unit || ""}` : ""}`
+      );
+      parts.push(`優先して使い切る在庫: ${lines.join("、")}`);
+    }
+    if (extraIngredients.length > 0) {
+      parts.push(`追加の残り食材: ${extraIngredients.join("、")}`);
     }
 
     // Build schedule text
@@ -231,7 +256,7 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
     parts.push("\n献立を提案してください！");
 
     onSubmit(parts.join("\n"), weekStart);
-  }, [ingredients, days, slots, notes, weekStart, cookMode, wantRecipes, onSubmit]);
+  }, [pantryItems, prioritizedIds, extraIngredients, days, slots, notes, weekStart, cookMode, wantRecipes, onSubmit]);
 
   const weekEndDate = days[days.length - 1];
 
@@ -340,24 +365,61 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
           </p>
         </section>
 
-        {/* Remaining ingredients */}
+        {/* Pantry-based ingredients */}
         <section>
           <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
             残り食材
           </h2>
           <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
-            {ingredients.length > 0 && (
+            {pantryItems.length > 0 ? (
+              <div className="mb-2">
+                <p className="mb-2 text-[12px] text-label-secondary">
+                  冷蔵庫にある食材（タップで優先使用）
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {pantryItems.map((item) => {
+                    const isPrioritized = prioritizedIds.includes(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => togglePrioritized(item.id)}
+                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium transition-colors ${
+                          isPrioritized
+                            ? "bg-blue text-white"
+                            : "bg-fill-tertiary text-label-secondary"
+                        }`}
+                      >
+                        {item.name}
+                        {item.amount != null && (
+                          <span className="text-[11px] opacity-70">
+                            {item.amount}{item.unit || ""}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="mb-2 text-[12px] text-label-tertiary">
+                冷蔵庫は空です。追加は在庫タブから。
+              </p>
+            )}
+
+            {/* Extra manual ingredients */}
+            {extraIngredients.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
-                {ingredients.map((name) => (
+                {extraIngredients.map((name) => (
                   <span
                     key={name}
-                    className="flex items-center gap-1 rounded-full bg-blue/10 px-2.5 py-1 text-[13px] font-medium text-blue"
+                    className="flex items-center gap-1 rounded-full bg-green/10 px-2.5 py-1 text-[13px] font-medium text-green"
                   >
                     {name}
                     <button
                       type="button"
-                      onClick={() => removeIngredient(name)}
-                      className="ml-0.5 text-blue/60"
+                      onClick={() => removeExtraIngredient(name)}
+                      className="ml-0.5 text-green/60"
                     >
                       <X size={12} strokeWidth={2.5} />
                     </button>
@@ -365,18 +427,20 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                 ))}
               </div>
             )}
-            <div className="flex gap-2">
+
+            {/* Manual add (for items not in fridge yet) */}
+            <div className="mt-2 flex gap-2">
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="食材名を入力"
+                placeholder="他に使いたい食材"
                 className="flex-1 rounded-[10px] bg-fill-tertiary px-3 py-2 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
               />
               <button
                 type="button"
-                onClick={addIngredient}
+                onClick={addExtraIngredient}
                 disabled={!inputValue.trim()}
                 className="rounded-[10px] bg-fill px-3 py-2 text-[15px] font-medium text-blue active:bg-fill-secondary disabled:opacity-40"
               >
