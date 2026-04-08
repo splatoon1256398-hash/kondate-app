@@ -113,7 +113,7 @@ export default function PantryList() {
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <Refrigerator size={20} className="text-blue" />
-          <h1 className="text-lg font-bold">冷蔵庫</h1>
+          <h1 className="text-lg font-bold">在庫</h1>
         </div>
         <span className="text-xs text-muted">{items.length} アイテム</span>
       </div>
@@ -157,7 +157,7 @@ export default function PantryList() {
       {regularItems.length === 0 && staples.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
           <Refrigerator size={32} className="text-muted" />
-          <p className="text-sm text-muted">冷蔵庫は空です</p>
+          <p className="text-sm text-muted">在庫は空です</p>
           <p className="text-xs text-muted">買い物リストのチェックで自動追加されます</p>
         </div>
       ) : regularItems.length === 0 ? null : (

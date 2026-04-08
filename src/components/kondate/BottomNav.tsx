@@ -8,7 +8,7 @@ const tabs = [
   { href: "/menu", label: "献立", icon: CalendarDays },
   { href: "/shopping", label: "買い物", icon: ShoppingCart },
   { href: "/ai", label: "AI提案", icon: Sparkles },
-  { href: "/pantry", label: "冷蔵庫", icon: Refrigerator },
+  { href: "/pantry", label: "在庫", icon: Refrigerator },
   { href: "/recipes", label: "レシピ", icon: BookOpen },
 ] as const;
 
