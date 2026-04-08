@@ -598,52 +598,53 @@ function MealSlotToggle({
   onToggle: () => void;
   onServingsChange: (s: number) => void;
 }) {
-  if (!config.enabled) {
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-dashed border-border py-2.5 text-xs text-muted transition-colors active:border-accent active:text-accent"
-      >
-        {label} — スキップ
-      </button>
-    );
-  }
-
   return (
-    <div className="flex flex-1 items-center gap-1.5 rounded-lg bg-card-hover p-1.5">
-      {/* Toggle off */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="shrink-0 text-[10px] text-danger active:opacity-60"
-        aria-label="スキップ"
-      >
-        ✕
-      </button>
-
-      {/* Label */}
-      <span className="shrink-0 text-xs font-medium text-foreground">
-        {label}
-      </span>
-
-      {/* Servings */}
-      <div className="ml-auto flex overflow-hidden rounded-lg border border-border">
-        {[1, 2].map((n) => (
+    <button
+      type="button"
+      onClick={config.enabled ? undefined : onToggle}
+      className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-2 transition-all ${
+        config.enabled
+          ? "bg-accent/10 border border-accent/30"
+          : "bg-card/50 border border-dashed border-border active:border-accent"
+      }`}
+    >
+      {/* Label + toggle */}
+      <div className="flex w-full items-center justify-between">
+        <span className={`text-xs font-semibold ${config.enabled ? "text-accent" : "text-muted"}`}>
+          {label}
+        </span>
+        {config.enabled && (
           <button
-            key={n}
             type="button"
-            onClick={() => onServingsChange(n)}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-              config.servings === n
-                ? "bg-accent text-background"
-                : "text-muted active:text-foreground"
-            }`}
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            className="text-[10px] text-muted active:text-danger"
           >
-            {n}人
+            OFF
           </button>
-        ))}
+        )}
       </div>
-    </div>
+
+      {config.enabled ? (
+        /* Servings selector */
+        <div className="flex w-full gap-1">
+          {[1, 2].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onServingsChange(n); }}
+              className={`flex-1 rounded-lg py-1 text-[11px] font-bold transition-colors ${
+                config.servings === n
+                  ? "bg-accent text-background"
+                  : "bg-card text-muted active:text-foreground"
+              }`}
+            >
+              {n}人
+            </button>
+          ))}
+        </div>
+      ) : (
+        <span className="text-[10px] text-muted">タップで追加</span>
+      )}
+    </button>
   );
 }

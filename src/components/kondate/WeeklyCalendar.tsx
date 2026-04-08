@@ -134,12 +134,12 @@ export default function WeeklyCalendar() {
                 {/* Meal slots */}
                 <div className="flex min-w-0 gap-2">
                   {lunch ? (
-                    <MealSlotCard slot={lunch} />
+                    <MealSlotCard slot={lunch} onUpdate={() => fetchMenu(weekStart)} />
                   ) : (
                     <EmptySlot date={date} mealType="lunch" />
                   )}
                   {dinner ? (
-                    <MealSlotCard slot={dinner} />
+                    <MealSlotCard slot={dinner} onUpdate={() => fetchMenu(weekStart)} />
                   ) : (
                     <EmptySlot date={date} mealType="dinner" />
                   )}

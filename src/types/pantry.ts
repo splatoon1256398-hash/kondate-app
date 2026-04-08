@@ -8,6 +8,7 @@ export type PantryItem = {
   category: string;
   expiry_date: string | null;
   source: PantrySource;
+  is_staple: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -24,4 +25,5 @@ export type UpdatePantryItem = {
   amount?: number;
   unit?: string;
   expiry_date?: string | null;
+  is_staple?: boolean;
 };

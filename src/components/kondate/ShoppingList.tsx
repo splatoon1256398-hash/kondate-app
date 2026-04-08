@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { shortDate } from "@/lib/utils/date";
@@ -214,10 +214,31 @@ export default function ShoppingList() {
     <div className="pb-4">
       {/* Header */}
       <div className="px-4 py-3">
-        <h1 className="text-lg font-bold">買い物リスト</h1>
-        <p className="text-xs text-muted">
-          {shortDate(list.week_start_date)} の週
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold">買い物リスト</h1>
+            <p className="text-xs text-muted">
+              {shortDate(list.week_start_date)} の週
+            </p>
+          </div>
+          {checkedItems > 0 && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm("チェック済みアイテムを全て削除しますか？")) return;
+                const checkedIds = list.items.filter((i) => i.is_checked).map((i) => i.id);
+                setList((prev) => prev ? { ...prev, items: prev.items.filter((i) => !i.is_checked) } : prev);
+                for (const itemId of checkedIds) {
+                  await fetch(`/api/shopping-lists/${list.id}/items/${itemId}`, { method: "DELETE" });
+                }
+              }}
+              className="flex items-center gap-1 rounded-lg bg-card px-2.5 py-1.5 text-[10px] text-muted transition-colors active:text-danger"
+            >
+              <Trash2 size={12} />
+              済を削除
+            </button>
+          )}
+        </div>
         {/* Progress bar */}
         <div className="mt-2 flex items-center gap-2">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">

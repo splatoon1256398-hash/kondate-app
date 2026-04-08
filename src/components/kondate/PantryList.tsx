@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Refrigerator, Plus, Trash2, X, AlertTriangle } from "lucide-react";
+import { Refrigerator, Plus, Trash2, X, AlertTriangle, Pin } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { PantryItem } from "@/types/pantry";
 import type { ApiResponse } from "@/types/common";
@@ -54,6 +54,17 @@ export default function PantryList() {
     await fetch(`/api/pantry/${id}`, { method: "DELETE" });
   }, []);
 
+  const toggleStaple = useCallback(async (id: string, current: boolean) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, is_staple: !current } : i))
+    );
+    await fetch(`/api/pantry/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_staple: !current }),
+    });
+  }, []);
+
   const handleAdd = useCallback(
     async (item: { name: string; amount?: number; unit?: string; category: string; expiry_date?: string }) => {
       const res = await fetch("/api/pantry", {
@@ -69,9 +80,12 @@ export default function PantryList() {
     []
   );
 
+  const staples = useMemo(() => items.filter((i) => i.is_staple), [items]);
+  const regularItems = useMemo(() => items.filter((i) => !i.is_staple), [items]);
+
   const grouped = useMemo(() => {
     const categories = new Map<string, PantryItem[]>();
-    for (const item of items) {
+    for (const item of regularItems) {
       const cat = item.category || "other";
       if (!categories.has(cat)) categories.set(cat, []);
       categories.get(cat)!.push(item);
@@ -83,7 +97,7 @@ export default function PantryList() {
         config: CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other,
         items: catItems,
       }));
-  }, [items]);
+  }, [regularItems]);
 
   if (loading) {
     return (
@@ -112,13 +126,41 @@ export default function PantryList() {
         </div>
       )}
 
-      {items.length === 0 ? (
+      {/* Staple items section */}
+      {staples.length > 0 && (
+        <div className="mb-4 px-3">
+          <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-semibold text-accent">
+            <Pin size={12} />
+            常備品
+            <span className="text-[10px] font-normal text-muted">({staples.length})</span>
+          </h2>
+          <div className="flex flex-wrap gap-1.5">
+            {staples.map((item) => (
+              <span
+                key={item.id}
+                className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-xs text-accent"
+              >
+                {item.name}
+                <button
+                  type="button"
+                  onClick={() => toggleStaple(item.id, true)}
+                  className="ml-0.5 text-accent/40 hover:text-accent"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {regularItems.length === 0 && staples.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
           <Refrigerator size={32} className="text-muted" />
           <p className="text-sm text-muted">冷蔵庫は空です</p>
           <p className="text-xs text-muted">買い物リストのチェックで自動追加されます</p>
         </div>
-      ) : (
+      ) : regularItems.length === 0 ? null : (
         <div className="space-y-4 px-3">
           {grouped.map(({ category, config, items: catItems }) => (
             <section key={category}>
@@ -163,13 +205,25 @@ export default function PantryList() {
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item.id)}
-                      className="ml-2 shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="ml-2 flex shrink-0 gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleStaple(item.id, item.is_staple)}
+                        className={`rounded-lg p-1.5 transition-colors ${
+                          item.is_staple ? "text-accent" : "text-muted hover:text-accent"
+                        }`}
+                        aria-label="常備品にする"
+                      >
+                        <Pin size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item.id)}
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
