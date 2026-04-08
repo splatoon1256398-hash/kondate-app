@@ -147,11 +147,13 @@ export default function WeeklyCalendar() {
                   <MealSlotRow
                     slot={lunch}
                     mealType="lunch"
+                    isToday={isToday}
                     onUpdate={() => fetchMenu(weekStart)}
                   />
                   <MealSlotRow
                     slot={dinner}
                     mealType="dinner"
+                    isToday={isToday}
                     onUpdate={() => fetchMenu(weekStart)}
                   />
                 </div>
