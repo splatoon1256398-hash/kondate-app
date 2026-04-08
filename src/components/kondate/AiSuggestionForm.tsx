@@ -66,20 +66,26 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   const [searchResults, setSearchResults] = useState<RecipeListItem[]>([]);
   const [showRecipeSearch, setShowRecipeSearch] = useState(false);
   const [recommended, setRecommended] = useState<RecipeListItem[]>([]);
+  const [popular, setPopular] = useState<RecipeListItem[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const days = getWeekDays(weekStart);
 
-  // Fetch recommended recipes on mount
+  // Fetch recommended + popular recipes on mount
   useEffect(() => {
-    async function loadRecommended() {
+    async function load() {
       try {
-        const res = await fetch("/api/recipes/recommended");
-        const json: ApiResponse<RecipeListItem[]> = await res.json();
-        if (json.data) setRecommended(json.data);
+        const [recRes, popRes] = await Promise.all([
+          fetch("/api/recipes/recommended"),
+          fetch("/api/recipes/popular"),
+        ]);
+        const recJson: ApiResponse<RecipeListItem[]> = await recRes.json();
+        const popJson: ApiResponse<RecipeListItem[]> = await popRes.json();
+        if (recJson.data) setRecommended(recJson.data);
+        if (popJson.data) setPopular(popJson.data);
       } catch { /* ignore */ }
     }
-    loadRecommended();
+    load();
   }, []);
 
   // Recipe search
@@ -483,16 +489,51 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
             </div>
           )}
 
-          {/* Recommended recipes */}
+          {/* Popular ranking */}
+          {popular.length > 0 && (
+            <div className="mt-3">
+              <h3 className="mb-1.5 text-[11px] font-semibold text-orange">
+                人気ランキング
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {popular
+                  .filter((r) => !wantRecipes.some((w) => w.id === r.id))
+                  .slice(0, 10)
+                  .map((r, i) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() =>
+                        setWantRecipes((prev) => [
+                          ...prev,
+                          { id: r.id, title: r.title },
+                        ])
+                      }
+                      className="flex items-center gap-1 rounded-full border border-orange/20 bg-orange/5 px-2.5 py-1.5 text-[11px] transition-colors active:border-orange active:bg-orange/10"
+                    >
+                      <span className="text-[9px] font-bold text-orange">{i + 1}</span>
+                      {r.cook_method === "hotcook" && (
+                        <ChefHat size={10} className="text-accent" />
+                      )}
+                      <span className="max-w-[9rem] truncate">{r.title}</span>
+                      <Plus size={10} className="text-muted" />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Recommended */}
           {recommended.length > 0 && (
             <div className="mt-3">
-              <h3 className="mb-1.5 text-[11px] font-semibold text-muted">
-                おすすめ
+              <h3 className="mb-1.5 text-[11px] font-semibold text-accent">
+                AIおすすめ
               </h3>
               <div className="flex flex-wrap gap-1.5">
                 {recommended
                   .filter((r) => !wantRecipes.some((w) => w.id === r.id))
-                  .slice(0, 12)
+                  .filter((r) => !popular.some((p) => p.id === r.id))
+                  .slice(0, 10)
                   .map((r) => (
                     <button
                       key={r.id}
@@ -511,7 +552,7 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                       {r.cook_method === "hotcook" && (
                         <ChefHat size={10} className="text-accent" />
                       )}
-                      <span className="max-w-[10rem] truncate">{r.title}</span>
+                      <span className="max-w-[9rem] truncate">{r.title}</span>
                       <Plus size={10} className="text-muted" />
                     </button>
                   ))}

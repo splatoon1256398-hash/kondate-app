@@ -29,7 +29,7 @@ export async function GET() {
     // Get favorites first
     const { data: favorites } = await supabase
       .from("recipes")
-      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite")
+      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite, image_url")
       .eq("is_favorite", true)
       .order("title")
       .limit(10);
@@ -57,7 +57,7 @@ export async function GET() {
     if (topRatedIds.length > 0) {
       const { data } = await supabase
         .from("recipes")
-        .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite")
+        .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite, image_url")
         .in("id", topRatedIds);
       topRated = (data || []) as RecipeListItem[];
     }
@@ -65,7 +65,7 @@ export async function GET() {
     // Get popular hotcook recipes (recently imported, diverse)
     const { data: popular } = await supabase
       .from("recipes")
-      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite")
+      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite, image_url")
       .eq("cook_method", "hotcook")
       .not("hotcook_menu_number", "is", null)
       .order("created_at", { ascending: false })

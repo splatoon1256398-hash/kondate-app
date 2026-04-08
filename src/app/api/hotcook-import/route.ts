@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ApiResponse } from "@/types/common";
 
+/** Strip HTML tags from text */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<img[^>]*>/gi, "") // remove img tags entirely
+    .replace(/<[^>]+>/g, "")     // remove all other tags
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/#→#/g, " → ")     // fix COCORO+ separator
+    .trim();
+}
+
 // Default model — KN-HW24G is a common 2.4L model
 const DEFAULT_MODEL = "KN-HW24G";
 
@@ -33,6 +47,7 @@ type HotcookRecipeResponse = {
   quantity?: string;
   materials?: { name?: string; quantity?: string; orderNumber?: number }[];
   methods?: { text?: string; renderedHtml?: string; orderNumber?: number }[];
+  imageUrl?: string;
   // Old API format (fallbacks)
   recipeName?: string;
   recipeNameKana?: string;
@@ -146,11 +161,14 @@ export async function POST(request: NextRequest) {
 
     const steps = stepSource
       .filter((s) => s.description)
-      .map((s, idx) => ({
-        step_number: idx + 1,
-        instruction: s.description!.trim(),
-        tip: s.tips?.trim() || null,
-      }));
+      .map((s, idx) => {
+        const cleaned = stripHtml(s.description!);
+        return cleaned ? { step_number: idx + 1, instruction: cleaned, tip: s.tips?.trim() || null } : null;
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null && s.instruction.length > 0);
+
+    // Image URL
+    const imageUrl = raw.imageUrl || null;
 
     // Save to DB
     const supabase = createSupabaseServerClient();
@@ -186,6 +204,7 @@ export async function POST(request: NextRequest) {
         prep_time_min: null,
         cook_time_min: cookTimeMin,
         source: "imported" as const,
+        image_url: imageUrl,
       })
       .select("id")
       .single();

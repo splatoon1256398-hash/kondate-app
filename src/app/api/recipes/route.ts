@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("recipes")
-      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite");
+      .select("id, title, cook_method, hotcook_menu_number, prep_time_min, cook_time_min, source, is_favorite, image_url");
 
     if (q) {
       query = query.ilike("title", `%${q}%`);

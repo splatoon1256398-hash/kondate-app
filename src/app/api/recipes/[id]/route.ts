@@ -57,6 +57,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       cook_time_min: data.cook_time_min,
       source: data.source,
       is_favorite: data.is_favorite ?? false,
+      image_url: data.image_url ?? null,
       ingredients: (data.recipe_ingredients || [])
         .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
         .map((i: { id: string; name: string; amount: number; unit: string; sort_order: number }) => ({

@@ -105,6 +105,17 @@ export default function RecipeDetailPage({ recipeId }: Props) {
         </button>
       </div>
 
+      {/* Recipe image */}
+      {recipe.image_url && (
+        <div className="mx-4 mt-1 overflow-hidden rounded-xl">
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            className="h-48 w-full object-cover"
+          />
+        </div>
+      )}
+
       {/* Delete confirmation */}
       {showDeleteConfirm && (
         <div className="mx-4 mb-3 rounded-lg border border-danger/30 bg-danger/5 p-3">
