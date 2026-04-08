@@ -65,9 +65,22 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   const [recipeSearch, setRecipeSearch] = useState("");
   const [searchResults, setSearchResults] = useState<RecipeListItem[]>([]);
   const [showRecipeSearch, setShowRecipeSearch] = useState(false);
+  const [recommended, setRecommended] = useState<RecipeListItem[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const days = getWeekDays(weekStart);
+
+  // Fetch recommended recipes on mount
+  useEffect(() => {
+    async function loadRecommended() {
+      try {
+        const res = await fetch("/api/recipes/recommended");
+        const json: ApiResponse<RecipeListItem[]> = await res.json();
+        if (json.data) setRecommended(json.data);
+      } catch { /* ignore */ }
+    }
+    loadRecommended();
+  }, []);
 
   // Recipe search
   useEffect(() => {
@@ -467,6 +480,42 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
               {recipeSearch.trim() && searchResults.length === 0 && (
                 <p className="px-2 text-xs text-muted">該当なし</p>
               )}
+            </div>
+          )}
+
+          {/* Recommended recipes */}
+          {recommended.length > 0 && (
+            <div className="mt-3">
+              <h3 className="mb-1.5 text-[11px] font-semibold text-muted">
+                おすすめ
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {recommended
+                  .filter((r) => !wantRecipes.some((w) => w.id === r.id))
+                  .slice(0, 12)
+                  .map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() =>
+                        setWantRecipes((prev) => [
+                          ...prev,
+                          { id: r.id, title: r.title },
+                        ])
+                      }
+                      className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1.5 text-[11px] transition-colors active:border-accent active:bg-accent/10"
+                    >
+                      {r.is_favorite && (
+                        <Heart size={10} className="fill-danger text-danger" />
+                      )}
+                      {r.cook_method === "hotcook" && (
+                        <ChefHat size={10} className="text-accent" />
+                      )}
+                      <span className="max-w-[10rem] truncate">{r.title}</span>
+                      <Plus size={10} className="text-muted" />
+                    </button>
+                  ))}
+              </div>
             </div>
           )}
         </section>

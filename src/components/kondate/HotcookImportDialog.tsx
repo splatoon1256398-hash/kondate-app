@@ -20,7 +20,12 @@ type Props = {
 export default function HotcookImportDialog({ onClose }: Props) {
   const router = useRouter();
   const [recipeId, setRecipeId] = useState("");
-  const [model, setModel] = useState("KN-HW24G");
+  const [model, setModel] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("hotcook_model") || "KN-HW24H";
+    }
+    return "KN-HW24H";
+  });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +105,8 @@ export default function HotcookImportDialog({ onClose }: Props) {
               onChange={(e) => setModel(e.target.value)}
               className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none"
             >
+              <option value="KN-HW24H">KN-HW24H (2.4L)</option>
+              <option value="KN-HW16H">KN-HW16H (1.6L)</option>
               <option value="KN-HW24G">KN-HW24G (2.4L)</option>
               <option value="KN-HW16G">KN-HW16G (1.6L)</option>
               <option value="KN-HW24F">KN-HW24F (2.4L)</option>

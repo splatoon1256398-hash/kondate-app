@@ -7,6 +7,7 @@ const DEFAULT_MODEL = "KN-HW24G";
 
 // Whitelist of allowed model IDs
 const ALLOWED_MODELS = new Set([
+  "KN-HW24H", "KN-HW16H",
   "KN-HW24G", "KN-HW16G",
   "KN-HW24F", "KN-HW16F",
   "KN-HW24E", "KN-HW16E",

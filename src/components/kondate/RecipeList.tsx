@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, ChefHat, Flame, Plus, Filter, Download, Heart } from "lucide-react";
+import { Search, ChefHat, Flame, Plus, Filter, Download, Heart, Settings } from "lucide-react";
 import Link from "next/link";
 import type { RecipeListItem, CookMethod } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
@@ -69,6 +69,12 @@ export default function RecipeList() {
       <div className="flex items-center justify-between px-4 py-3">
         <h1 className="text-lg font-bold">レシピ</h1>
         <div className="flex gap-2">
+          <Link
+            href="/settings"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted transition-colors hover:text-foreground"
+          >
+            <Settings size={14} />
+          </Link>
           <button
             type="button"
             onClick={() => setShowImport(true)}
