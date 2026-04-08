@@ -19,7 +19,7 @@ export default function BottomNav() {
     <nav
       className="material-bar separator-top fixed bottom-0 left-0 right-0 z-50 pb-safe-nav"
     >
-      <div className="mx-auto flex h-[49px] max-w-lg items-stretch justify-around">
+      <div className="mx-auto flex h-[60px] max-w-lg items-stretch justify-around">
         {tabs.map(({ href, label, icon: Icon }) => {
           const isActive = pathname.startsWith(href);
           return (
