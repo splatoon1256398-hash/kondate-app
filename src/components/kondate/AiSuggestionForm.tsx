@@ -269,12 +269,12 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
           </div>
         </section>
 
-        {/* Cook mode — Segmented control */}
+        {/* Cook mode */}
         <section>
           <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
             調理方法
           </h2>
-          <div className="flex gap-1 rounded-[8px] bg-fill-tertiary p-1">
+          <div className="grid grid-cols-3 gap-2">
             {(
               [
                 { key: "hotcook", label: "ホットクック", icon: ChefHat },
@@ -286,17 +286,58 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                 key={key}
                 type="button"
                 onClick={() => setCookMode(key)}
-                className={`flex flex-1 items-center justify-center gap-1 rounded-[6px] py-2 text-[13px] font-semibold transition-all ${
+                className={`flex flex-col items-center justify-center gap-1 rounded-[10px] py-3 transition-all ${
                   cookMode === key
-                    ? "bg-bg-secondary text-label shadow-sm"
-                    : "text-label-secondary"
+                    ? "bg-blue text-white"
+                    : "bg-bg-grouped-secondary text-label"
                 }`}
               >
-                <Icon size={14} strokeWidth={1.5} />
-                {label}
+                <Icon size={20} strokeWidth={1.5} />
+                <span className="text-[13px] font-semibold">{label}</span>
               </button>
             ))}
           </div>
+        </section>
+
+        {/* Week schedule */}
+        <section>
+          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
+            食事の予定
+          </h2>
+          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+            {days.map((date) => {
+              const daySlots = slots[date];
+              return (
+                <div key={date} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="w-10 shrink-0">
+                    <div className="text-[15px] font-semibold text-label">
+                      {dayLabel(date)}
+                    </div>
+                    <div className="text-[11px] text-label-tertiary">
+                      {shortDate(date)}
+                    </div>
+                  </div>
+                  <div className="flex flex-1 gap-2">
+                    <MealSlotToggle
+                      label="昼"
+                      config={daySlots.lunch}
+                      onToggle={() => toggleSlot(date, "lunch")}
+                      onServingsChange={(s) => setServings(date, "lunch", s)}
+                    />
+                    <MealSlotToggle
+                      label="夜"
+                      config={daySlots.dinner}
+                      onToggle={() => toggleSlot(date, "dinner")}
+                      onServingsChange={(s) => setServings(date, "dinner", s)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 pl-4 text-[12px] text-label-tertiary">
+            外食などでスキップする場合はスキップを押す
+          </p>
         </section>
 
         {/* Remaining ingredients */}
@@ -345,45 +386,20 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
           </div>
         </section>
 
-        {/* Week schedule */}
+        {/* Notes (renamed to 要望) */}
         <section>
           <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
-            食事の予定
+            要望
           </h2>
-          <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
-            {days.map((date) => {
-              const daySlots = slots[date];
-              return (
-                <div key={date} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className="w-10 shrink-0">
-                    <div className="text-[15px] font-semibold text-label">
-                      {dayLabel(date)}
-                    </div>
-                    <div className="text-[11px] text-label-tertiary">
-                      {shortDate(date)}
-                    </div>
-                  </div>
-                  <div className="flex flex-1 gap-2">
-                    <MealSlotToggle
-                      label="昼"
-                      config={daySlots.lunch}
-                      onToggle={() => toggleSlot(date, "lunch")}
-                      onServingsChange={(s) => setServings(date, "lunch", s)}
-                    />
-                    <MealSlotToggle
-                      label="夜"
-                      config={daySlots.dinner}
-                      onToggle={() => toggleSlot(date, "dinner")}
-                      onServingsChange={(s) => setServings(date, "dinner", s)}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="作り置き希望、苦手な食材、味の好みなど..."
+              rows={3}
+              className="w-full resize-none rounded-[10px] bg-fill-tertiary px-3 py-2 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
+            />
           </div>
-          <p className="mt-1.5 pl-4 text-[12px] text-label-tertiary">
-            外食などでスキップする場合はOFFに
-          </p>
         </section>
 
         {/* Recipe requests */}
@@ -536,22 +552,6 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
           )}
         </section>
 
-        {/* Notes */}
-        <section>
-          <h2 className="mb-1.5 pl-4 text-[13px] font-semibold uppercase tracking-wide text-label-secondary">
-            メモ
-          </h2>
-          <div className="rounded-[10px] bg-bg-grouped-secondary p-3">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="作り置き希望、苦手な食材など..."
-              rows={3}
-              className="w-full resize-none rounded-[10px] bg-fill-tertiary px-3 py-2 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
-            />
-          </div>
-        </section>
-
         {/* Submit */}
         <button
           type="button"
@@ -582,23 +582,21 @@ function MealSlotToggle({
       <button
         type="button"
         onClick={onToggle}
-        className="flex flex-1 items-center justify-center rounded-[8px] border border-dashed border-separator py-2 text-[12px] font-medium text-label-tertiary active:bg-fill"
+        className="flex flex-1 items-center justify-center gap-1 rounded-[8px] border border-dashed border-separator py-2 text-[12px] font-medium text-label-tertiary active:bg-fill"
       >
-        {label} OFF
+        <span className="text-label-secondary">{label}</span>
+        <span className="text-label-tertiary">スキップ</span>
       </button>
     );
   }
 
   return (
     <div className="flex flex-1 items-center gap-1 rounded-[8px] bg-fill-tertiary p-1">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] text-[10px] font-semibold text-label-secondary"
-        aria-label="OFF"
-      >
+      {/* Label (non-clickable) */}
+      <span className="flex h-7 w-6 shrink-0 items-center justify-center text-[11px] font-semibold text-label-secondary">
         {label}
-      </button>
+      </span>
+      {/* Servings */}
       <div className="flex flex-1 gap-0.5">
         {[1, 2].map((n) => (
           <button
@@ -615,6 +613,15 @@ function MealSlotToggle({
           </button>
         ))}
       </div>
+      {/* Explicit skip button */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] text-label-tertiary active:bg-fill"
+        aria-label="スキップ"
+      >
+        <X size={14} strokeWidth={2.5} />
+      </button>
     </div>
   );
 }
