@@ -136,7 +136,8 @@ async function fetchAndParseRecipe(recipeId: string) {
 
   const raw: CocoroPlusRecipe = await res.json();
 
-  const title = raw.name || raw.recipeName || `ホットクックレシピ ${recipeId}`;
+  const title = (raw.name || raw.recipeName || "").trim();
+  if (!title) return null; // Not available for this model
   const menuNo = raw.menuNo || recipeId;
   const mixingUnit = raw.mixingUnit || "";
 

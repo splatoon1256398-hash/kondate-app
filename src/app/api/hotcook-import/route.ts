@@ -99,7 +99,13 @@ export async function POST(request: NextRequest) {
     const raw: HotcookRecipeResponse = await res.json();
 
     // Parse the response — handle both new API format (name/materials/methods) and old format (recipeName/ingredients/steps)
-    const title = raw.name || raw.recipeName || `ホットクックレシピ ${recipeId}`;
+    const title = (raw.name || raw.recipeName || "").trim();
+    if (!title) {
+      return NextResponse.json(
+        { data: null, error: "このレシピはこの機種に対応していません" } satisfies ApiResponse<null>,
+        { status: 404 }
+      );
+    }
     const menuNo = raw.menuNo || recipeId;
     const mixingUnit = raw.mixingUnit || "";
     const servingsText = raw.quantity || raw.servings || "2";
