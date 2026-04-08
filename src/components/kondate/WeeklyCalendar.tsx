@@ -103,25 +103,30 @@ export default function WeeklyCalendar() {
       ) : !menu ? (
         <EmptyWeekState />
       ) : (
-        <div className="space-y-1 px-3">
+        <div className="space-y-2 px-3">
           {days.map((date) => {
             const { lunch, dinner } = slotsForDay(date);
             const isToday = date === today;
+            const isPast = date < today;
 
             return (
               <div
                 key={date}
-                className={`rounded-xl p-2 ${
-                  isToday ? "bg-accent/5 ring-1 ring-accent/20" : ""
+                className={`rounded-2xl p-3 ${
+                  isToday
+                    ? "bg-accent/5 ring-1 ring-accent/30"
+                    : isPast
+                      ? "opacity-60"
+                      : ""
                 }`}
               >
                 {/* Day label */}
-                <div className="mb-1.5 flex items-center gap-1.5">
+                <div className="mb-2 flex items-center gap-2">
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
                       isToday
                         ? "bg-accent text-background"
-                        : "text-muted"
+                        : "bg-card text-muted"
                     }`}
                   >
                     {dayLabel(date)}
@@ -131,8 +136,8 @@ export default function WeeklyCalendar() {
                   </span>
                 </div>
 
-                {/* Meal slots */}
-                <div className="flex min-w-0 gap-2">
+                {/* Meal slots - equal height grid */}
+                <div className="grid min-w-0 grid-cols-2 gap-2">
                   {lunch ? (
                     <MealSlotCard slot={lunch} onUpdate={() => fetchMenu(weekStart)} />
                   ) : (
