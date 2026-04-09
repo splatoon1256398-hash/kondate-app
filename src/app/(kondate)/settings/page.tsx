@@ -1,39 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChefHat, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import Link from "next/link";
-
-const HOTCOOK_MODELS = [
-  { value: "KN-HW24H", label: "KN-HW24H (2.4L)" },
-  { value: "KN-HW16H", label: "KN-HW16H (1.6L)" },
-  { value: "KN-HW24G", label: "KN-HW24G (2.4L)" },
-  { value: "KN-HW16G", label: "KN-HW16G (1.6L)" },
-  { value: "KN-HW24F", label: "KN-HW24F (2.4L)" },
-  { value: "KN-HW16F", label: "KN-HW16F (1.6L)" },
-  { value: "KN-HW24E", label: "KN-HW24E (2.4L)" },
-  { value: "KN-HW16E", label: "KN-HW16E (1.6L)" },
-];
+import {
+  HOTCOOK_MODEL_OPTIONS,
+  useHotcookModelPreference,
+  type HotcookModel,
+} from "@/lib/preferences/hotcook-model";
 
 export default function SettingsPage() {
-  const [model, setModel] = useState("KN-HW24H");
+  const [model, setModel] = useHotcookModelPreference();
   const [saved, setSaved] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("hotcook_model");
-    if (stored) setModel(stored);
-  }, []);
-
-  function handleModelChange(value: string) {
+  function handleModelChange(value: HotcookModel) {
     setModel(value);
-    localStorage.setItem("hotcook_model", value);
     setSaved(true);
     setShowModelPicker(false);
     setTimeout(() => setSaved(false), 2000);
   }
 
-  const currentModel = HOTCOOK_MODELS.find((m) => m.value === model);
+  const currentModel =
+    HOTCOOK_MODEL_OPTIONS.find((option) => option.value === model) ??
+    HOTCOOK_MODEL_OPTIONS[0];
 
   return (
     <div className="bg-bg-grouped pb-6">
@@ -75,7 +65,7 @@ export default function SettingsPage() {
               </button>
             ) : (
               <div className="cell-separator">
-                {HOTCOOK_MODELS.map((m) => (
+                {HOTCOOK_MODEL_OPTIONS.map((m) => (
                   <button
                     key={m.value}
                     type="button"

@@ -3,18 +3,22 @@
 import { useCallback, useRef, useState } from "react";
 import { Send, Sparkles, Loader2, ShoppingCart, ArrowLeft, ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import type { ChatMessage, SSEEvent } from "@/types/meal-plan";
+import type {
+  ChatMessage,
+  MealPlanProposal,
+  SaveWeeklyMenuResult,
+  SSEEvent,
+  FunctionCallErrorResult,
+} from "@/types/meal-plan";
 import type { ApiResponse } from "@/types/common";
 import AiChatBubble from "./AiChatBubble";
 import MealPlanProposalCard from "./MealPlanProposalCard";
-
-type ProposalData = { week_start_date: string; slots: unknown[] };
 
 type DisplayMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  proposal?: ProposalData | null;
+  proposal?: MealPlanProposal | null;
   savedMenuId?: string | null;
   shoppingListCreated?: boolean;
 };
@@ -129,16 +133,20 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
-                        ? { ...m, proposal: event.result as DisplayMessage["proposal"] }
+                        ? { ...m, proposal: event.result }
                         : m
                     )
                   );
                 } else if (event.name === "save_weekly_menu") {
-                  const result = event.result as { weekly_menu_id?: string };
+                  const result = event.result as SaveWeeklyMenuResult | FunctionCallErrorResult;
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
-                        ? { ...m, savedMenuId: result.weekly_menu_id ?? null }
+                        ? {
+                            ...m,
+                            savedMenuId:
+                              "weekly_menu_id" in result ? result.weekly_menu_id : null,
+                          }
                         : m
                     )
                   );
@@ -191,7 +199,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
 
   // Confirm proposal directly (bypass Gemini — call save API)
   const confirmProposal = useCallback(
-    async (proposal: ProposalData, msgId: string) => {
+    async (proposal: MealPlanProposal, msgId: string) => {
       if (confirming) return; // prevent double submit
       setConfirming(true);
       setStreaming(true);
@@ -224,8 +232,8 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
               m.id === msgId
                 ? {
                     ...m,
-                    savedMenuId: json.data!.weekly_menu_id,
-                    shoppingListCreated: !!json.data!.shopping_list_id,
+                    savedMenuId: json.data.weekly_menu_id,
+                    shoppingListCreated: !!json.data.shopping_list_id,
                   }
                 : m
             )
@@ -326,7 +334,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
               {msg.proposal && (
                 <MealPlanProposalCard
                   weekStartDate={msg.proposal.week_start_date}
-                  slots={msg.proposal.slots as Parameters<typeof MealPlanProposalCard>[0]["slots"]}
+                  slots={msg.proposal.slots}
                   confirmed={!!msg.savedMenuId}
                   confirming={confirming}
                   onConfirm={

@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   executeSaveWeeklyMenu,
   executeGenerateShoppingList,
   validateSaveArgs,
 } from "@/lib/gemini/handlers";
-import type { ApiResponse } from "@/types/common";
+import { apiError, apiSuccess } from "@/lib/api/response";
 
 /**
  * POST /api/meal-plan/confirm
@@ -18,10 +18,7 @@ export async function POST(request: NextRequest) {
     // Validate with Zod
     const validation = validateSaveArgs(body);
     if (!validation.success) {
-      return NextResponse.json(
-        { data: null, error: validation.error } satisfies ApiResponse<null>,
-        { status: 400 }
-      );
+      return apiError(validation.error, 400);
     }
 
     const supabase = createSupabaseServerClient();
@@ -41,27 +38,21 @@ export async function POST(request: NextRequest) {
       // Partial success — menu saved but shopping list failed
     }
 
-    return NextResponse.json(
+    return apiSuccess<{
+      weekly_menu_id: string;
+      saved_slots: number;
+      shopping_list_id: string | null;
+    }>(
       {
-        data: {
-          weekly_menu_id: saveResult.weekly_menu_id,
-          saved_slots: saveResult.saved_slots,
-          shopping_list_id: shoppingListId,
-        },
-        error: null,
-      } satisfies ApiResponse<{
-        weekly_menu_id: string;
-        saved_slots: number;
-        shopping_list_id: string | null;
-      }>,
-      { status: 200 }
+        weekly_menu_id: saveResult.weekly_menu_id,
+        saved_slots: saveResult.saved_slots,
+        shopping_list_id: shoppingListId,
+      },
+      200
     );
   } catch (e) {
     console.error("[confirm] error:", e);
     const message = e instanceof Error ? e.message : "Internal server error";
-    return NextResponse.json(
-      { data: null, error: message } satisfies ApiResponse<null>,
-      { status: 500 }
-    );
+    return apiError(message, 500);
   }
 }

@@ -4,24 +4,11 @@ import { useEffect, useState } from "react";
 import { ChefHat, CheckCircle2, Loader2, Sun, Moon, Check, Database, Sparkles } from "lucide-react";
 import { shortDate, dayLabel } from "@/lib/utils/date";
 import type { ApiResponse } from "@/types/common";
-
-type SlotProposal = {
-  date: string;
-  meal_type: "lunch" | "dinner";
-  servings: number;
-  is_skipped?: boolean;
-  memo?: string;
-  recipe_id?: string;
-  recipe?: {
-    title: string;
-    cook_method: string;
-    hotcook_menu_number?: string;
-  };
-};
+import type { MealPlanSlotProposal } from "@/types/meal-plan";
 
 type Props = {
   weekStartDate: string;
-  slots: SlotProposal[];
+  slots: MealPlanSlotProposal[];
   confirmed?: boolean;
   confirming?: boolean;
   onConfirm?: () => void;
@@ -64,7 +51,7 @@ export default function MealPlanProposalCard({ slots, confirmed, confirming, onC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots]);
 
-  const byDate = new Map<string, SlotProposal[]>();
+  const byDate = new Map<string, MealPlanSlotProposal[]>();
   for (const slot of slots) {
     if (!byDate.has(slot.date)) byDate.set(slot.date, []);
     byDate.get(slot.date)!.push(slot);

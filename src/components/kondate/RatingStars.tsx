@@ -13,7 +13,6 @@ type Props = {
 
 export default function RatingStars({ recipeId, isFavorite, onFavoriteChange }: Props) {
   const [ratings, setRatings] = useState<RecipeRating[]>([]);
-  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeUser, setActiveUser] = useState<UserName>("れん");
   const [comment, setComment] = useState("");
@@ -32,8 +31,6 @@ export default function RatingStars({ recipeId, isFavorite, onFavoriteChange }: 
         }
       } catch {
         // ignore
-      } finally {
-        if (!cancelled) setLoaded(true);
       }
     }
     load();

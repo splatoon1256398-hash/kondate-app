@@ -101,7 +101,11 @@ export async function GET() {
     const recommended = Array.from(allRecipes.values())
       .sort((a, b) => b.score - a.score)
       .slice(0, 20)
-      .map(({ score: _score, ...r }) => r);
+      .map((recipe) => {
+        const { score, ...rest } = recipe;
+        void score;
+        return rest;
+      });
 
     return NextResponse.json(
       { data: recommended, error: null } satisfies ApiResponse<RecipeListItem[]>,

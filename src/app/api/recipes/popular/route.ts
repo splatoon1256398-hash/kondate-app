@@ -91,7 +91,11 @@ export async function GET() {
     // Sort by rank
     matched.sort((a, b) => a.rank - b.rank);
 
-    const result = matched.slice(0, 20).map(({ rank: _rank, ...r }) => r);
+    const result = matched.slice(0, 20).map((recipe) => {
+      const { rank, ...rest } = recipe;
+      void rank;
+      return rest;
+    });
 
     return NextResponse.json(
       { data: result, error: null } satisfies ApiResponse<RecipeListItem[]>,

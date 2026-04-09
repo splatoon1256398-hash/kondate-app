@@ -15,6 +15,22 @@ import type { Content, Part } from "@google/genai";
 // Gemini 2.5 Flash (thinking model) + FC can take >60s
 export const maxDuration = 120;
 
+type FunctionCallEvent = Extract<SSEEvent, { type: "function_call" }>;
+type FunctionCallName = FunctionCallEvent["name"];
+type FunctionCallResult = FunctionCallEvent["result"];
+type ProposeWeeklyMenuEvent = Extract<
+  SSEEvent,
+  { type: "function_call"; name: "propose_weekly_menu" }
+>;
+type SaveWeeklyMenuEvent = Extract<
+  SSEEvent,
+  { type: "function_call"; name: "save_weekly_menu" }
+>;
+type GenerateShoppingListEvent = Extract<
+  SSEEvent,
+  { type: "function_call"; name: "generate_shopping_list" }
+>;
+
 function sseEncode(event: SSEEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
@@ -75,6 +91,32 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        function sendFunctionCall(name: FunctionCallName, result: FunctionCallResult) {
+          switch (name) {
+            case "propose_weekly_menu":
+              send({
+                type: "function_call",
+                name,
+                result: result as ProposeWeeklyMenuEvent["result"],
+              });
+              break;
+            case "save_weekly_menu":
+              send({
+                type: "function_call",
+                name,
+                result: result as SaveWeeklyMenuEvent["result"],
+              });
+              break;
+            case "generate_shopping_list":
+              send({
+                type: "function_call",
+                name,
+                result: result as GenerateShoppingListEvent["result"],
+              });
+              break;
+          }
+        }
+
         // Keep-alive comment
         send({ type: "text", content: "" });
 
@@ -118,10 +160,26 @@ export async function POST(request: NextRequest) {
               if (part.functionCall) {
                 hasFunctionCall = true;
                 const { name, args } = part.functionCall;
+                if (
+                  name !== "propose_weekly_menu" &&
+                  name !== "save_weekly_menu" &&
+                  name !== "generate_shopping_list"
+                ) {
+                  const result = { error: `Unknown function: ${name}` };
+                  fcResponseParts.push({
+                    functionResponse: {
+                      name,
+                      response: result,
+                    },
+                  });
+                  continue;
+                }
+
+                const functionName: FunctionCallName = name;
 
                 let result: unknown;
                 try {
-                  switch (name) {
+                  switch (functionName) {
                     case "propose_weekly_menu":
                       result = executePropose(args as Parameters<typeof executePropose>[0]);
                       break;
@@ -141,18 +199,18 @@ export async function POST(request: NextRequest) {
                       );
                       break;
                     default:
-                      result = { error: `Unknown function: ${name}` };
+                      result = { error: `Unknown function: ${functionName}` };
                   }
                 } catch (e) {
-                  console.error(`[FC:${name}] error:`, e);
+                  console.error(`[FC:${functionName}] error:`, e);
                   result = { error: e instanceof Error ? e.message : "FC execution failed" };
                 }
 
-                send({ type: "function_call", name: name!, result });
+                sendFunctionCall(functionName, result as FunctionCallResult);
 
                 fcResponseParts.push({
                   functionResponse: {
-                    name: name!,
+                    name: functionName,
                     response: result as Record<string, unknown>,
                   },
                 });

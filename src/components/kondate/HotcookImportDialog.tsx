@@ -4,6 +4,13 @@ import { useState } from "react";
 import { Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ApiResponse } from "@/types/common";
+import {
+  DEFAULT_HOTCOOK_MODEL,
+  HOTCOOK_MODEL_OPTIONS,
+  readStoredHotcookModel,
+  saveHotcookModelPreference,
+  type HotcookModel,
+} from "@/lib/preferences/hotcook-model";
 
 type ImportResult = {
   id: string;
@@ -20,12 +27,11 @@ type Props = {
 export default function HotcookImportDialog({ onClose }: Props) {
   const router = useRouter();
   const [recipeId, setRecipeId] = useState("");
-  const [model, setModel] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("hotcook_model") || "KN-HW24H";
-    }
-    return "KN-HW24H";
-  });
+  const [model, setModel] = useState<HotcookModel>(() =>
+    typeof window === "undefined"
+      ? DEFAULT_HOTCOOK_MODEL
+      : readStoredHotcookModel(window.localStorage)
+  );
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,17 +122,18 @@ export default function HotcookImportDialog({ onClose }: Props) {
               <span className="w-24 shrink-0 text-[15px] text-label">機種</span>
               <select
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
+                onChange={(e) => {
+                  const nextModel = e.target.value as HotcookModel;
+                  setModel(nextModel);
+                  saveHotcookModelPreference(nextModel);
+                }}
                 className="flex-1 bg-transparent py-3 text-[15px] text-label focus:outline-none"
               >
-                <option value="KN-HW24H">KN-HW24H (2.4L)</option>
-                <option value="KN-HW16H">KN-HW16H (1.6L)</option>
-                <option value="KN-HW24G">KN-HW24G (2.4L)</option>
-                <option value="KN-HW16G">KN-HW16G (1.6L)</option>
-                <option value="KN-HW24F">KN-HW24F (2.4L)</option>
-                <option value="KN-HW16F">KN-HW16F (1.6L)</option>
-                <option value="KN-HW24E">KN-HW24E (2.4L)</option>
-                <option value="KN-HW16E">KN-HW16E (1.6L)</option>
+                {HOTCOOK_MODEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

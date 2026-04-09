@@ -24,28 +24,13 @@ import {
   nextWeek,
   prevWeek,
 } from "@/lib/utils/date";
-
-type MealType = "lunch" | "dinner";
-type CookMode = "hotcook" | "stove" | "mixed";
-
-type SlotConfig = {
-  enabled: boolean;
-  servings: number;
-};
-
-type WeekSlots = Record<string, Record<MealType, SlotConfig>>;
-
-function buildInitialSlots(mondayStr: string): WeekSlots {
-  const days = getWeekDays(mondayStr);
-  const slots: WeekSlots = {};
-  for (const date of days) {
-    slots[date] = {
-      lunch: { enabled: true, servings: 1 },
-      dinner: { enabled: true, servings: 2 },
-    };
-  }
-  return slots;
-}
+import {
+  buildInitialSlots,
+  buildMealPlanRequestMessage,
+  type MealType,
+  type CookMode,
+  type WeekSlots,
+} from "@/lib/meal-plan/request";
 
 type Props = {
   onSubmit: (message: string, weekStart: string) => void;
@@ -73,6 +58,8 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const days = getWeekDays(weekStart);
+  const normalizedRecipeSearch = recipeSearch.trim();
+  const visibleSearchResults = normalizedRecipeSearch ? searchResults : [];
 
   // Fetch recommended + popular + pantry on mount
   useEffect(() => {
@@ -101,20 +88,30 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
 
   // Recipe search
   useEffect(() => {
-    if (!recipeSearch.trim()) {
-      setSearchResults([]);
-      return;
-    }
     clearTimeout(searchTimerRef.current);
+    if (!normalizedRecipeSearch) return;
+
+    let cancelled = false;
+    const query = normalizedRecipeSearch;
+
     searchTimerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/recipes?q=${encodeURIComponent(recipeSearch)}&limit=10`);
+        const res = await fetch(`/api/recipes?q=${encodeURIComponent(query)}&limit=10`);
         const json: ApiResponse<RecipeListItem[]> = await res.json();
-        if (json.data) setSearchResults(json.data);
-      } catch { /* ignore */ }
+        if (!cancelled) {
+          setSearchResults(json.data ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setSearchResults([]);
+        }
+      }
     }, 300);
-    return () => clearTimeout(searchTimerRef.current);
-  }, [recipeSearch]);
+    return () => {
+      cancelled = true;
+      clearTimeout(searchTimerRef.current);
+    };
+  }, [normalizedRecipeSearch]);
 
   // Week navigation
   const goToPrevWeek = useCallback(() => {
@@ -187,75 +184,18 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
   );
 
   const handleSubmit = useCallback(() => {
-    const parts: string[] = [];
+    const message = buildMealPlanRequestMessage({
+      cookMode,
+      pantryItems,
+      prioritizedIds,
+      extraIngredients,
+      days,
+      slots,
+      notes,
+      wantRecipes,
+    });
 
-    // Cook mode
-    const modeLabel =
-      cookMode === "hotcook"
-        ? "ホットクックのみ"
-        : cookMode === "stove"
-          ? "コンロのみ"
-          : "ホットクック＋コンロ混合";
-    parts.push(`調理方法: ${modeLabel}`);
-
-    // Prioritized pantry items
-    const prioritized = pantryItems.filter((p) => prioritizedIds.includes(p.id));
-    if (prioritized.length > 0) {
-      const lines = prioritized.map(
-        (p) => `${p.name}${p.amount != null ? ` ${p.amount}${p.unit || ""}` : ""}`
-      );
-      parts.push(`優先して使い切る在庫: ${lines.join("、")}`);
-    }
-    if (extraIngredients.length > 0) {
-      parts.push(`追加の残り食材: ${extraIngredients.join("、")}`);
-    }
-
-    // Build schedule text
-    const scheduleLines: string[] = [];
-    for (const date of days) {
-      const daySlot = slots[date];
-      const parts2: string[] = [];
-      if (daySlot.lunch.enabled) {
-        parts2.push(`昼${daySlot.lunch.servings}人`);
-      }
-      if (daySlot.dinner.enabled) {
-        parts2.push(`夜${daySlot.dinner.servings}人`);
-      }
-      if (parts2.length > 0) {
-        scheduleLines.push(
-          `${dayLabel(date)}(${shortDate(date)}): ${parts2.join("、")}`
-        );
-      } else {
-        scheduleLines.push(`${dayLabel(date)}(${shortDate(date)}): なし`);
-      }
-    }
-    parts.push(`\n今週の予定:\n${scheduleLines.join("\n")}`);
-
-    // Skipped slots
-    const skipped: string[] = [];
-    for (const date of days) {
-      const daySlot = slots[date];
-      if (!daySlot.lunch.enabled) skipped.push(`${dayLabel(date)}昼`);
-      if (!daySlot.dinner.enabled) skipped.push(`${dayLabel(date)}夜`);
-    }
-    if (skipped.length > 0) {
-      parts.push(`\n不要な枠（外食など）: ${skipped.join("、")}`);
-    }
-
-    // Requested recipes
-    if (wantRecipes.length > 0) {
-      parts.push(
-        `\n食べたいレシピ（必ず組み込んで）:\n${wantRecipes.map((r) => `- ${r.title}`).join("\n")}`
-      );
-    }
-
-    if (notes.trim()) {
-      parts.push(`\nメモ: ${notes.trim()}`);
-    }
-
-    parts.push("\n献立を提案してください！");
-
-    onSubmit(parts.join("\n"), weekStart);
+    onSubmit(message, weekStart);
   }, [pantryItems, prioritizedIds, extraIngredients, days, slots, notes, weekStart, cookMode, wantRecipes, onSubmit]);
 
   const weekEndDate = days[days.length - 1];
@@ -531,9 +471,9 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                     <X size={14} strokeWidth={2.5} />
                   </button>
                 </div>
-                {searchResults.length > 0 && (
+                {visibleSearchResults.length > 0 && (
                   <div className="cell-separator max-h-60 overflow-y-auto rounded-[10px] bg-bg-secondary">
-                    {searchResults
+                    {visibleSearchResults
                       .filter((r) => !wantRecipes.some((w) => w.id === r.id))
                       .map((r) => (
                         <button
