@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Search, ChefHat, Flame, Plus, Heart, Settings, ChevronRight, Download } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { RecipeListItem, CookMethod } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
 import HotcookImportDialog from "./HotcookImportDialog";
@@ -14,37 +15,100 @@ const COOK_METHOD_LABELS: Record<CookMethod | "all", string> = {
   other: "その他",
 };
 
+/**
+ * フィルタ状態は URL クエリで管理する:
+ *   /recipes?q=カレー&cook_method=hotcook&favorite=true
+ * こうすることで、詳細ページから router.back() で戻ったときに
+ * App Router の Client-side Cache + スクロール復元が効き、
+ * スクロール位置・フィルタ・検索ワードが保持される。
+ */
 export default function RecipeList() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const urlQuery = searchParams.get("q") ?? "";
+  const cookMethodFilter = (searchParams.get("cook_method") ?? "all") as CookMethod | "all";
+  const favoriteOnly = searchParams.get("favorite") === "true";
+
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [cookMethodFilter, setCookMethodFilter] = useState<CookMethod | "all">("all");
-  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  // 検索入力は URL より先行して保持（デバウンス後に URL へ反映）
+  const [queryDraft, setQueryDraft] = useState(urlQuery);
 
-  const fetchRecipes = useCallback(async () => {
+  // URL クエリに patch して history を置き換える（戻る履歴は汚染しない）
+  const updateSearchParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(patch)) {
+        if (value == null || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
+  // ブラウザ戻る/進む時に draft を URL に合わせる
+  useEffect(() => {
+    setQueryDraft(urlQuery);
+  }, [urlQuery]);
+
+  // draft → URL (debounced)
+  useEffect(() => {
+    if (queryDraft === urlQuery) return;
+    const timer = setTimeout(() => {
+      updateSearchParams({ q: queryDraft || null });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [queryDraft, urlQuery, updateSearchParams]);
+
+  // Fetch (URL state が変わるたびに実行)
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    try {
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (urlQuery) params.set("q", urlQuery);
+        if (cookMethodFilter !== "all") params.set("cook_method", cookMethodFilter);
+        if (favoriteOnly) params.set("is_favorite", "true");
+        params.set("limit", "100");
+
+        const res = await fetch(`/api/recipes?${params}`);
+        const json: ApiResponse<RecipeListItem[]> = await res.json();
+        if (!cancelled && json.data) setRecipes(json.data);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlQuery, cookMethodFilter, favoriteOnly]);
+
+  const setCookMethodFilter = (method: CookMethod | "all") =>
+    updateSearchParams({ cook_method: method === "all" ? null : method });
+  const toggleFavoriteOnly = () =>
+    updateSearchParams({ favorite: favoriteOnly ? null : "true" });
+
+  const refetch = useCallback(() => {
+    // インポート成功後のリフレッシュ: searchParams は変わらないので手動 fetch
+    (async () => {
       const params = new URLSearchParams();
-      if (query) params.set("q", query);
+      if (urlQuery) params.set("q", urlQuery);
       if (cookMethodFilter !== "all") params.set("cook_method", cookMethodFilter);
       if (favoriteOnly) params.set("is_favorite", "true");
       params.set("limit", "100");
-
       const res = await fetch(`/api/recipes?${params}`);
       const json: ApiResponse<RecipeListItem[]> = await res.json();
       if (json.data) setRecipes(json.data);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [query, cookMethodFilter, favoriteOnly]);
-
-  useEffect(() => {
-    const timer = setTimeout(fetchRecipes, 300);
-    return () => clearTimeout(timer);
-  }, [fetchRecipes]);
+    })();
+  }, [urlQuery, cookMethodFilter, favoriteOnly]);
 
   return (
     <div className="bg-bg-grouped pb-6">
@@ -52,7 +116,7 @@ export default function RecipeList() {
         <HotcookImportDialog
           onClose={() => {
             setShowImport(false);
-            fetchRecipes();
+            refetch();
           }}
         />
       )}
@@ -94,8 +158,8 @@ export default function RecipeList() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-label-tertiary" strokeWidth={2} />
           <input
             type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={queryDraft}
+            onChange={(e) => setQueryDraft(e.target.value)}
             placeholder="レシピを検索"
             className="w-full rounded-[10px] bg-fill-tertiary py-2 pl-9 pr-4 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none"
           />
@@ -122,7 +186,7 @@ export default function RecipeList() {
         {/* Favorite toggle */}
         <button
           type="button"
-          onClick={() => setFavoriteOnly(!favoriteOnly)}
+          onClick={toggleFavoriteOnly}
           className={`mt-2 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
             favoriteOnly
               ? "bg-red/10 text-red"
@@ -142,7 +206,7 @@ export default function RecipeList() {
           </div>
         ) : recipes.length === 0 ? (
           <div className="py-16 text-center text-[15px] text-label-secondary">
-            {query ? "該当するレシピがありません" : "レシピがまだありません"}
+            {urlQuery ? "該当するレシピがありません" : "レシピがまだありません"}
           </div>
         ) : (
           <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">

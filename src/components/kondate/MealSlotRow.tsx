@@ -25,17 +25,11 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
     if (!slot || acting) return;
     setActing(true);
     try {
-      if (slot.recipe_id) {
-        await fetch(`/api/recipes/${slot.recipe_id}/cooked`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ servings: slot.servings }),
-        });
-      }
+      // 単一エンドポイントで cooked_at 更新 + pantry 減算を冪等に実行
       await fetch(`/api/meal-slots/${slot.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memo: "調理済み" }),
+        body: JSON.stringify({ cooked: true }),
       });
       onUpdate?.();
     } catch { /* ignore */ } finally {
@@ -83,8 +77,8 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
     );
   }
 
-  // Cooked
-  if (slot.memo === "調理済み") {
+  // Cooked (新フラグ cooked_at を優先、旧 memo="調理済み" もフォールバック)
+  if (slot.cooked_at != null || slot.memo === "調理済み") {
     return (
       <div className="flex min-h-[44px] items-center gap-3 px-4 py-2.5">
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green">

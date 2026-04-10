@@ -19,7 +19,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       .select(`
         *,
         meal_slots (
-          id, date, meal_type, servings, recipe_id, memo, is_skipped,
+          id, date, meal_type, servings, recipe_id, memo, is_skipped, cooked_at,
           recipes ( title )
         )
       `)
@@ -46,7 +46,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       status: data.status,
       notes: data.notes,
       meal_slots: (data.meal_slots || []).map(
-        (slot: { id: string; date: string; meal_type: string; servings: number; recipe_id: string | null; memo: string | null; is_skipped: boolean; recipes: { title: string } | null }): MealSlotResponse => ({
+        (slot: { id: string; date: string; meal_type: string; servings: number; recipe_id: string | null; memo: string | null; is_skipped: boolean; cooked_at: string | null; recipes: { title: string } | null }): MealSlotResponse => ({
           id: slot.id,
           date: slot.date,
           meal_type: slot.meal_type as MealSlotResponse["meal_type"],
@@ -55,6 +55,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
           recipe_title: slot.recipes?.title ?? null,
           memo: slot.memo,
           is_skipped: slot.is_skipped,
+          cooked_at: slot.cooked_at,
         })
       ),
     };

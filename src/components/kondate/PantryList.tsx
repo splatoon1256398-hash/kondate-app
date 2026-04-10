@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Refrigerator, Plus, Trash2, X, AlertTriangle, Pin } from "lucide-react";
+import { Refrigerator, Plus, Trash2, X, AlertTriangle, Pin, Sparkles } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { PantryItem } from "@/types/pantry";
 import type { ApiResponse } from "@/types/common";
@@ -28,12 +28,25 @@ function isExpired(dateStr: string | null): boolean {
   return new Date(dateStr).getTime() < Date.now();
 }
 
-type PantryTab = "food" | "seasoning";
+/**
+ * 2層モデル:
+ *   - week: 今週使い切る手持ち食材（is_staple=false && category !== "seasoning"）
+ *   - stock: 常備品・調味料（is_staple=true || category === "seasoning"）
+ *
+ * AI提案の「残り食材」は week だけを読む（AiSuggestionForm で既に同等の絞り込み）。
+ * 常備品・調味料は「常にある前提」のため、献立提案の制約には入らない。
+ */
+type PantryTab = "week" | "stock";
+
+function isWeekItem(item: PantryItem): boolean {
+  return !item.is_staple && (item.category || "other") !== "seasoning";
+}
 
 export default function PantryList() {
   const [items, setItems] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<PantryTab>("food");
+  const [tab, setTab] = useState<PantryTab>("week");
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -84,26 +97,22 @@ export default function PantryList() {
   );
 
   const staples = useMemo(() => items.filter((i) => i.is_staple), [items]);
-  const regularItems = useMemo(() => items.filter((i) => !i.is_staple), [items]);
 
-  const tabItems = useMemo(
+  /** 「今週の手持ち」: 常備品フラグなし & 調味料以外 */
+  const weekItems = useMemo(() => items.filter(isWeekItem), [items]);
+
+  /** 「常備・調味料」タブに出す非常備品の調味料（is_staple=false だが調味料カテゴリ） */
+  const stockSeasonings = useMemo(
     () =>
-      regularItems.filter((i) =>
-        tab === "seasoning"
-          ? (i.category || "other") === "seasoning"
-          : (i.category || "other") !== "seasoning"
+      items.filter(
+        (i) => !i.is_staple && (i.category || "other") === "seasoning"
       ),
-    [regularItems, tab]
+    [items]
   );
 
-  const foodCount = useMemo(
-    () => regularItems.filter((i) => (i.category || "other") !== "seasoning").length,
-    [regularItems]
-  );
-  const seasoningCount = useMemo(
-    () => regularItems.filter((i) => (i.category || "other") === "seasoning").length,
-    [regularItems]
-  );
+  const tabItems = tab === "week" ? weekItems : stockSeasonings;
+  const weekCount = weekItems.length;
+  const stockCount = staples.length + stockSeasonings.length;
 
   const grouped = useMemo(() => {
     const categories = new Map<string, PantryItem[]>();
@@ -137,13 +146,13 @@ export default function PantryList() {
         <p className="text-[15px] text-label-secondary">{items.length} アイテム</p>
       </div>
 
-      {/* Segmented tab (食材 / 調味料) */}
+      {/* Segmented tab (今週の手持ち / 常備・調味料) */}
       <div className="px-4 pb-3 pt-1">
         <div className="flex gap-1 rounded-[9px] bg-fill-tertiary p-[3px]">
           {(
             [
-              { key: "food", label: "食材", count: foodCount },
-              { key: "seasoning", label: "調味料", count: seasoningCount },
+              { key: "week", label: "今週の手持ち", count: weekCount },
+              { key: "stock", label: "常備・調味料", count: stockCount },
             ] as const
           ).map(({ key, label, count }) => (
             <button
@@ -157,15 +166,25 @@ export default function PantryList() {
               }`}
             >
               {label}
-              <span
-                className={`text-[11px] ${tab === key ? "text-label-tertiary" : "text-label-tertiary"}`}
-              >
-                {count}
-              </span>
+              <span className="text-[11px] text-label-tertiary">{count}</span>
             </button>
           ))}
         </div>
       </div>
+
+      {/* Weekly reset button (week タブのみ) */}
+      {tab === "week" && weekItems.length > 0 && (
+        <div className="mb-3 px-4">
+          <button
+            type="button"
+            onClick={() => setShowResetDialog(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-separator bg-bg-grouped-secondary py-2 text-[13px] font-medium text-label-secondary active:bg-fill"
+          >
+            <Sparkles size={12} strokeWidth={2} />
+            今週の手持ちを整理
+          </button>
+        </div>
+      )}
 
       {/* Warning */}
       {items.some((i) => isExpiringSoon(i.expiry_date) || isExpired(i.expiry_date)) && (
@@ -175,8 +194,8 @@ export default function PantryList() {
         </div>
       )}
 
-      {/* Staples (食材タブのみ表示 — 調味料タブでは調味料リストに集中) */}
-      {tab === "food" && staples.length > 0 && (
+      {/* Staples (stock タブのみ表示 — week タブは「今週使い切る」に集中) */}
+      {tab === "stock" && staples.length > 0 && (
         <section className="mb-5">
           <h2 className="mb-1.5 flex items-center gap-1.5 px-4 pl-4 text-[13px] font-semibold uppercase tracking-wide text-blue">
             <Pin size={11} strokeWidth={2} />
@@ -205,18 +224,18 @@ export default function PantryList() {
         </section>
       )}
 
-      {tabItems.length === 0 && (tab === "seasoning" || staples.length === 0) ? (
+      {tabItems.length === 0 && (tab === "week" || staples.length === 0) ? (
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-fill">
             <Refrigerator size={28} className="text-blue" strokeWidth={1.5} />
           </div>
           <p className="text-[17px] text-label">
-            {tab === "seasoning" ? "調味料は登録されていません" : "在庫は空です"}
+            {tab === "week" ? "今週の手持ちはありません" : "常備品は登録されていません"}
           </p>
           <p className="text-[13px] text-label-secondary">
-            {tab === "seasoning"
-              ? "下のボタンから追加できます"
-              : "買い物リストのチェックで自動追加されます"}
+            {tab === "week"
+              ? "買い物リストのチェックで自動追加されます"
+              : "よく使う食材を常備品に登録すると、AI提案で常にある前提として扱われます"}
           </p>
         </div>
       ) : (
@@ -290,7 +309,134 @@ export default function PantryList() {
       <div className="mt-5 px-4">
         <PantryAddDialog onAdd={handleAdd} />
       </div>
+
+      {/* Weekly reset dialog */}
+      <WeeklyResetDialog
+        open={showResetDialog}
+        onOpenChange={setShowResetDialog}
+        items={weekItems}
+        onDelete={async (ids) => {
+          setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
+          await Promise.all(
+            ids.map((id) =>
+              fetch(`/api/pantry/${id}`, { method: "DELETE" })
+            )
+          );
+        }}
+      />
     </div>
+  );
+}
+
+function WeeklyResetDialog({
+  open,
+  onOpenChange,
+  items,
+  onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  items: PantryItem[];
+  onDelete: (ids: string[]) => Promise<void>;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Dialog を開くたびに選択をリセット
+  useEffect(() => {
+    if (open) setSelected(new Set());
+  }, [open]);
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allSelected = items.length > 0 && selected.size === items.length;
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(items.map((i) => i.id)));
+  };
+
+  const handleApply = async () => {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    await onDelete(ids);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" />
+        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg rounded-t-[14px] bg-bg-secondary pb-safe shadow-2xl">
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="h-1 w-9 rounded-full bg-gray3" />
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-2">
+            <Dialog.Close className="text-[17px] text-blue active:opacity-60">
+              キャンセル
+            </Dialog.Close>
+            <Dialog.Title className="text-[17px] font-semibold text-label">
+              手持ちを整理
+            </Dialog.Title>
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={selected.size === 0}
+              className="text-[17px] font-semibold text-red active:opacity-60 disabled:opacity-30"
+            >
+              削除 ({selected.size})
+            </button>
+          </div>
+
+          <p className="px-4 pb-3 text-[13px] text-label-secondary">
+            使い切った・もう無い食材にチェックを入れて削除します。
+          </p>
+
+          <div className="max-h-[60vh] overflow-y-auto px-4 pb-4">
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="mb-2 text-[13px] font-medium text-blue active:opacity-60"
+            >
+              {allSelected ? "すべて解除" : "すべて選択"}
+            </button>
+            <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
+              {items.map((item) => {
+                const checked = selected.has(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => toggle(item.id)}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left active:bg-fill-tertiary"
+                  >
+                    <span
+                      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                        checked ? "border-red bg-red text-white" : "border-gray3"
+                      }`}
+                    >
+                      {checked && <X size={14} strokeWidth={3} />}
+                    </span>
+                    <span className="flex-1 text-[17px] text-label">{item.name}</span>
+                    {item.amount != null && (
+                      <span className="text-[13px] text-label-tertiary">
+                        {item.amount}
+                        {item.unit || ""}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

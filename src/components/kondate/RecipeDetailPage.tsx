@@ -87,7 +87,15 @@ export default function RecipeDetailPage({ recipeId }: Props) {
       <div className="material-bar separator-bottom flex items-center px-2 py-2.5">
         <button
           type="button"
-          onClick={() => router.push("/recipes")}
+          onClick={() => {
+            // history に前の状態があれば戻る（= App Router のキャッシュ + スクロール位置復元）
+            // 直アクセス等で履歴がなければ一覧に push で遷移
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/recipes");
+            }
+          }}
           className="flex items-center gap-0.5 px-2 text-[17px] text-blue active:opacity-60"
         >
           <ChevronLeft size={22} strokeWidth={2.5} />

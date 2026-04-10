@@ -19,4 +19,9 @@ export type UpdateMealSlot = {
   recipe_id?: string | null;
   memo?: string;
   is_skipped?: boolean;
+  /**
+   * true を渡すと cooked_at=now() をセット + pantry から食材を減算（冪等）。
+   * false を渡すと cooked_at=null をセット（減算は巻き戻さない — 手動調整してください）
+   */
+  cooked?: boolean;
 };

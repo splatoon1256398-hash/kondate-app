@@ -191,6 +191,139 @@ export async function executeSaveWeeklyMenu(
   return { weekly_menu_id: menu.id, saved_slots: args.slots.length };
 }
 
+// -- regenerate_shopping_list (差分マージ版) --
+//
+// 献立の部分差し替え（recipe_id 変更、servings 変更、is_skipped 変更など）時に
+// 使う。既存の shopping_list を保持したまま:
+//   - 新しい集約結果にあって既存にない → INSERT
+//   - 既存にあって新集約にもある         → amount + recipe_titles を更新（is_checked/checked_by は保持）
+//   - 既存にあって新集約にない(かつ recipe_titles が非空) → DELETE
+//     ※ 手動追加アイテム (recipe_titles=[]) は残す
+//
+// 献立が未確定（shopping_list が存在しない）場合は何もせず null を返す。
+
+export async function regenerateShoppingList(
+  supabase: SupabaseClient,
+  weeklyMenuId: string
+): Promise<
+  | { shopping_list_id: string; added: number; updated: number; removed: number }
+  | null
+> {
+  // 1. 該当 shopping_list を取得
+  const { data: list } = await supabase
+    .from("shopping_lists")
+    .select("id")
+    .eq("weekly_menu_id", weeklyMenuId)
+    .maybeSingle();
+
+  if (!list) return null;
+
+  // 2. 現在の meal_slots + recipe 情報
+  const { data: slots } = await supabase
+    .from("meal_slots")
+    .select("servings, recipes ( title, servings_base, recipe_ingredients (*) )")
+    .eq("weekly_menu_id", weeklyMenuId)
+    .eq("is_skipped", false)
+    .not("recipe_id", "is", null);
+
+  // 3. pantry (常備品除外 + 在庫差し引き用)
+  const { data: pantry } = await supabase
+    .from("pantry_items")
+    .select("name, amount, unit, is_staple");
+
+  // 4. 集約
+  const aggregated = aggregateIngredients(
+    (slots || []) as unknown as SlotWithRecipe[],
+    (pantry || []) as Parameters<typeof aggregateIngredients>[1]
+  );
+
+  // 5. 既存 shopping_items を取得
+  const { data: existingItems } = await supabase
+    .from("shopping_items")
+    .select("id, name, unit, recipe_titles")
+    .eq("shopping_list_id", list.id);
+
+  const existing = (existingItems || []) as Array<{
+    id: string;
+    name: string;
+    unit: string | null;
+    recipe_titles: string[] | null;
+  }>;
+
+  const keyOf = (name: string, unit: string | null | undefined) =>
+    `${name}::${unit ?? ""}`;
+
+  const newMap = new Map(aggregated.map((i) => [keyOf(i.name, i.unit), i]));
+  const existingMap = new Map(existing.map((i) => [keyOf(i.name, i.unit), i]));
+
+  // 6. 差分計算
+  const toInsert: Array<Record<string, unknown>> = [];
+  const toUpdate: Array<{
+    id: string;
+    amount: number;
+    recipe_titles: string[];
+  }> = [];
+  const toDelete: string[] = [];
+
+  for (const [key, item] of newMap) {
+    const prev = existingMap.get(key);
+    if (prev) {
+      toUpdate.push({
+        id: prev.id,
+        amount: item.totalAmount,
+        recipe_titles: item.recipeTitles,
+      });
+    } else {
+      toInsert.push({
+        shopping_list_id: list.id,
+        name: item.name,
+        amount: item.totalAmount,
+        unit: item.unit,
+        category: item.category,
+        is_checked: false,
+        recipe_titles: item.recipeTitles,
+      });
+    }
+  }
+
+  for (const [key, prev] of existingMap) {
+    if (newMap.has(key)) continue;
+    // 手動追加（recipe_titles が空）のものは残す
+    if ((prev.recipe_titles ?? []).length > 0) {
+      toDelete.push(prev.id);
+    }
+  }
+
+  // 7. 反映
+  if (toInsert.length > 0) {
+    const { error: insertErr } = await supabase
+      .from("shopping_items")
+      .insert(toInsert);
+    if (insertErr) throw new Error(`regenerate insert failed: ${insertErr.message}`);
+  }
+  for (const upd of toUpdate) {
+    const { error: updErr } = await supabase
+      .from("shopping_items")
+      .update({ amount: upd.amount, recipe_titles: upd.recipe_titles })
+      .eq("id", upd.id);
+    if (updErr) throw new Error(`regenerate update failed: ${updErr.message}`);
+  }
+  if (toDelete.length > 0) {
+    const { error: delErr } = await supabase
+      .from("shopping_items")
+      .delete()
+      .in("id", toDelete);
+    if (delErr) throw new Error(`regenerate delete failed: ${delErr.message}`);
+  }
+
+  return {
+    shopping_list_id: list.id,
+    added: toInsert.length,
+    updated: toUpdate.length,
+    removed: toDelete.length,
+  };
+}
+
 // -- generate_shopping_list --
 
 export async function executeGenerateShoppingList(
