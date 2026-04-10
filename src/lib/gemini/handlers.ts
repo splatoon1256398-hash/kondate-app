@@ -197,10 +197,10 @@ export async function executeGenerateShoppingList(
   supabase: SupabaseClient,
   args: { weekly_menu_id: string }
 ): Promise<{ shopping_list_id: string; items_count: number }> {
-  // 1. Get slots + recipe ingredients
+  // 1. Get slots + recipe ingredients (title も含めて recipe_titles バッジに使う)
   const { data: slots } = await supabase
     .from("meal_slots")
-    .select("servings, recipes ( servings_base, recipe_ingredients (*) )")
+    .select("servings, recipes ( title, servings_base, recipe_ingredients (*) )")
     .eq("weekly_menu_id", args.weekly_menu_id)
     .eq("is_skipped", false)
     .not("recipe_id", "is", null);
@@ -238,6 +238,7 @@ export async function executeGenerateShoppingList(
         unit: item.unit,
         category: item.category,
         is_checked: false,
+        recipe_titles: item.recipeTitles,
       }))
     );
     if (itemsError) throw new Error(`shopping_items insert failed: ${itemsError.message}`);

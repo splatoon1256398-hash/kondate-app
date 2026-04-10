@@ -28,9 +28,12 @@ function isExpired(dateStr: string | null): boolean {
   return new Date(dateStr).getTime() < Date.now();
 }
 
+type PantryTab = "food" | "seasoning";
+
 export default function PantryList() {
   const [items, setItems] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<PantryTab>("food");
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -83,9 +86,28 @@ export default function PantryList() {
   const staples = useMemo(() => items.filter((i) => i.is_staple), [items]);
   const regularItems = useMemo(() => items.filter((i) => !i.is_staple), [items]);
 
+  const tabItems = useMemo(
+    () =>
+      regularItems.filter((i) =>
+        tab === "seasoning"
+          ? (i.category || "other") === "seasoning"
+          : (i.category || "other") !== "seasoning"
+      ),
+    [regularItems, tab]
+  );
+
+  const foodCount = useMemo(
+    () => regularItems.filter((i) => (i.category || "other") !== "seasoning").length,
+    [regularItems]
+  );
+  const seasoningCount = useMemo(
+    () => regularItems.filter((i) => (i.category || "other") === "seasoning").length,
+    [regularItems]
+  );
+
   const grouped = useMemo(() => {
     const categories = new Map<string, PantryItem[]>();
-    for (const item of regularItems) {
+    for (const item of tabItems) {
       const cat = item.category || "other";
       if (!categories.has(cat)) categories.set(cat, []);
       categories.get(cat)!.push(item);
@@ -97,7 +119,7 @@ export default function PantryList() {
         config: CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other,
         items: catItems,
       }));
-  }, [regularItems]);
+  }, [tabItems]);
 
   if (loading) {
     return (
@@ -115,6 +137,36 @@ export default function PantryList() {
         <p className="text-[15px] text-label-secondary">{items.length} アイテム</p>
       </div>
 
+      {/* Segmented tab (食材 / 調味料) */}
+      <div className="px-4 pb-3 pt-1">
+        <div className="flex gap-1 rounded-[9px] bg-fill-tertiary p-[3px]">
+          {(
+            [
+              { key: "food", label: "食材", count: foodCount },
+              { key: "seasoning", label: "調味料", count: seasoningCount },
+            ] as const
+          ).map(({ key, label, count }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-[7px] py-1.5 text-[13px] font-semibold transition-colors ${
+                tab === key
+                  ? "bg-bg-secondary text-label shadow-sm"
+                  : "text-label-secondary"
+              }`}
+            >
+              {label}
+              <span
+                className={`text-[11px] ${tab === key ? "text-label-tertiary" : "text-label-tertiary"}`}
+              >
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Warning */}
       {items.some((i) => isExpiringSoon(i.expiry_date) || isExpired(i.expiry_date)) && (
         <div className="mx-4 mb-4 flex items-center gap-2 rounded-[10px] bg-orange/10 px-4 py-3 text-[13px] text-orange">
@@ -123,8 +175,8 @@ export default function PantryList() {
         </div>
       )}
 
-      {/* Staples */}
-      {staples.length > 0 && (
+      {/* Staples (食材タブのみ表示 — 調味料タブでは調味料リストに集中) */}
+      {tab === "food" && staples.length > 0 && (
         <section className="mb-5">
           <h2 className="mb-1.5 flex items-center gap-1.5 px-4 pl-4 text-[13px] font-semibold uppercase tracking-wide text-blue">
             <Pin size={11} strokeWidth={2} />
@@ -153,13 +205,19 @@ export default function PantryList() {
         </section>
       )}
 
-      {regularItems.length === 0 && staples.length === 0 ? (
+      {tabItems.length === 0 && (tab === "seasoning" || staples.length === 0) ? (
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-fill">
             <Refrigerator size={28} className="text-blue" strokeWidth={1.5} />
           </div>
-          <p className="text-[17px] text-label">在庫は空です</p>
-          <p className="text-[13px] text-label-secondary">買い物リストのチェックで自動追加されます</p>
+          <p className="text-[17px] text-label">
+            {tab === "seasoning" ? "調味料は登録されていません" : "在庫は空です"}
+          </p>
+          <p className="text-[13px] text-label-secondary">
+            {tab === "seasoning"
+              ? "下のボタンから追加できます"
+              : "買い物リストのチェックで自動追加されます"}
+          </p>
         </div>
       ) : (
         <div className="px-4">

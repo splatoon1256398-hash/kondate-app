@@ -1,6 +1,7 @@
 export type SlotWithRecipe = {
   servings: number;
   recipes: {
+    title?: string;
     servings_base: number;
     recipe_ingredients: {
       name: string;
@@ -22,6 +23,8 @@ export type AggregatedItem = {
   totalAmount: number;
   unit: string;
   category: string;
+  /** この食材を使う一意なレシピタイトル一覧（重複なし、出現順） */
+  recipeTitles: string[];
 };
 
 /**
@@ -44,18 +47,25 @@ export function aggregateIngredients(
     const ratio = slot.servings / slot.recipes.servings_base;
     if (!isFinite(ratio) || ratio <= 0) continue;
 
+    const recipeTitle = slot.recipes.title?.trim() || "";
+
     for (const ing of slot.recipes.recipe_ingredients) {
       const key = `${ing.name}::${ing.unit}`;
       const adjusted = ing.amount * ratio;
 
-      if (map.has(key)) {
-        map.get(key)!.totalAmount += adjusted;
+      const existing = map.get(key);
+      if (existing) {
+        existing.totalAmount += adjusted;
+        if (recipeTitle && !existing.recipeTitles.includes(recipeTitle)) {
+          existing.recipeTitles.push(recipeTitle);
+        }
       } else {
         map.set(key, {
           name: ing.name,
           totalAmount: adjusted,
           unit: ing.unit,
           category: guessCategory(ing.name),
+          recipeTitles: recipeTitle ? [recipeTitle] : [],
         });
       }
     }

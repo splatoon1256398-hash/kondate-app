@@ -76,7 +76,10 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
         if (recJson.data) setRecommended(recJson.data);
         if (popJson.data) setPopular(popJson.data);
         if (panJson.data) {
-          const nonStaples = panJson.data.filter((i) => !i.is_staple);
+          // 調味料は「残り食材」として提示しない（常時あるものとして扱う）
+          const nonStaples = panJson.data.filter(
+            (i) => !i.is_staple && i.category !== "seasoning"
+          );
           setPantryItems(nonStaples);
           // Auto-prioritize all pantry items by default
           setPrioritizedIds(nonStaples.map((i) => i.id));
@@ -516,10 +519,10 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                         key={r.id}
                         type="button"
                         onClick={() => setWantRecipes((prev) => [...prev, { id: r.id, title: r.title }])}
-                        className="flex items-center gap-1 rounded-full bg-orange/10 px-2.5 py-1 text-[13px] font-medium text-orange active:bg-orange/20"
+                        className="flex max-w-full items-start gap-1 rounded-[12px] bg-orange/10 px-2.5 py-1.5 text-left text-[13px] font-medium text-orange active:bg-orange/20"
                       >
-                        <span className="text-[10px] font-bold">{i + 1}</span>
-                        <span className="max-w-[10rem] truncate">{r.title}</span>
+                        <span className="mt-[2px] shrink-0 text-[10px] font-bold">{i + 1}</span>
+                        <span className="whitespace-normal break-words leading-[1.3]">{r.title}</span>
                       </button>
                     ))}
                 </div>
@@ -544,10 +547,12 @@ export default function AiSuggestionForm({ onSubmit }: Props) {
                         key={r.id}
                         type="button"
                         onClick={() => setWantRecipes((prev) => [...prev, { id: r.id, title: r.title }])}
-                        className="flex items-center gap-1 rounded-full bg-purple/10 px-2.5 py-1 text-[13px] font-medium text-purple active:bg-purple/20"
+                        className="flex max-w-full items-start gap-1 rounded-[12px] bg-purple/10 px-2.5 py-1.5 text-left text-[13px] font-medium text-purple active:bg-purple/20"
                       >
-                        {r.is_favorite && <Heart size={10} className="fill-red text-red" />}
-                        <span className="max-w-[10rem] truncate">{r.title}</span>
+                        {r.is_favorite && (
+                          <Heart size={10} className="mt-[3px] shrink-0 fill-red text-red" />
+                        )}
+                        <span className="whitespace-normal break-words leading-[1.3]">{r.title}</span>
                       </button>
                     ))}
                 </div>

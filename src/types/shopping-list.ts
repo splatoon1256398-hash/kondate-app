@@ -17,6 +17,8 @@ export type ShoppingItemResponse = {
   category: string;
   is_checked: boolean;
   checked_by: string | null;
+  /** この食材を使うレシピのタイトル一覧（"カレー用" のような用途表示に利用） */
+  recipe_titles: string[];
 };
 
 export type ShoppingListResponse = {

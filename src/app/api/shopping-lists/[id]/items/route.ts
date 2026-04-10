@@ -31,8 +31,9 @@ export async function POST(request: NextRequest, { params }: Params) {
         unit: body.unit ?? null,
         category: body.category ?? "other",
         is_checked: false,
+        recipe_titles: [],
       })
-      .select("id, name, amount, unit, category, is_checked, checked_by")
+      .select("id, name, amount, unit, category, is_checked, checked_by, recipe_titles")
       .single();
 
     if (error) {

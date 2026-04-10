@@ -8,6 +8,7 @@ describe("aggregateIngredients", () => {
         {
           servings: 4,
           recipes: {
+            title: "カレー",
             servings_base: 2,
             recipe_ingredients: [
               { name: "玉ねぎ", amount: 1, unit: "個" },
@@ -18,6 +19,7 @@ describe("aggregateIngredients", () => {
         {
           servings: 2,
           recipes: {
+            title: "親子丼",
             servings_base: 2,
             recipe_ingredients: [
               { name: "玉ねぎ", amount: 1, unit: "個" },
@@ -33,8 +35,20 @@ describe("aggregateIngredients", () => {
     );
 
     expect(items).toEqual([
-      { name: "玉ねぎ", totalAmount: 2, unit: "個", category: "vegetable" },
-      { name: "鶏もも肉", totalAmount: 500, unit: "g", category: "meat_fish" },
+      {
+        name: "玉ねぎ",
+        totalAmount: 2,
+        unit: "個",
+        category: "vegetable",
+        recipeTitles: ["カレー", "親子丼"],
+      },
+      {
+        name: "鶏もも肉",
+        totalAmount: 500,
+        unit: "g",
+        category: "meat_fish",
+        recipeTitles: ["カレー", "親子丼"],
+      },
     ]);
   });
 });
