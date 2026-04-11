@@ -2,11 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ShoppingCart, Sparkles, BookOpen, Refrigerator } from "lucide-react";
+import {
+  CalendarDays,
+  ShoppingCart,
+  Sparkles,
+  BookOpen,
+  Refrigerator,
+  MessageCircle,
+} from "lucide-react";
 
 const tabs = [
   { href: "/menu", label: "献立", icon: CalendarDays },
   { href: "/shopping", label: "買い物", icon: ShoppingCart },
+  { href: "/consult", label: "相談", icon: MessageCircle },
   { href: "/ai", label: "AI提案", icon: Sparkles },
   { href: "/pantry", label: "在庫", icon: Refrigerator },
   { href: "/recipes", label: "レシピ", icon: BookOpen },

@@ -17,10 +17,20 @@ import {
   X,
   Heart,
   RotateCcw,
+  Sparkles,
+  Clock,
 } from "lucide-react";
 import type { MealSlotResponse } from "@/types/weekly-menu";
 import type { RecipeListItem } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+
+type AiCandidate = {
+  recipe_id: string;
+  title: string;
+  reason: string;
+  cook_method: "hotcook" | "stove" | "other";
+  cook_time_min: number | null;
+};
 
 type Props = {
   slot: MealSlotResponse | null;
@@ -297,11 +307,17 @@ function MealSlotActionSheet({
   onSkip: () => void;
   onSwap: (recipeId: string) => void;
 }) {
-  const [mode, setMode] = useState<"menu" | "swap">("menu");
+  const [mode, setMode] = useState<"menu" | "swap" | "ai">("menu");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RecipeListItem[]>([]);
   const [searching, setSearching] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // AIおまかせ用のstate
+  const [aiCandidates, setAiCandidates] = useState<AiCandidate[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiFreeText, setAiFreeText] = useState("");
 
   // シートを開くたびにモードをリセット
   useEffect(() => {
@@ -309,8 +325,37 @@ function MealSlotActionSheet({
       setMode("menu");
       setQuery("");
       setResults([]);
+      setAiCandidates([]);
+      setAiError(null);
+      setAiFreeText("");
     }
   }, [open]);
+
+  const fetchAiCandidates = useCallback(
+    async (freeText?: string) => {
+      setAiLoading(true);
+      setAiError(null);
+      setAiCandidates([]);
+      try {
+        const res = await fetch(`/api/meal-slots/${slot.id}/propose`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ free_text: freeText ?? "" }),
+        });
+        const json: ApiResponse<{ candidates: AiCandidate[] }> = await res.json();
+        if (json.error || !json.data) {
+          setAiError(json.error || "AI提案に失敗しました");
+          return;
+        }
+        setAiCandidates(json.data.candidates);
+      } catch {
+        setAiError("通信エラーが発生しました");
+      } finally {
+        setAiLoading(false);
+      }
+    },
+    [slot.id]
+  );
 
   // デバウンスレシピ検索
   useEffect(() => {
@@ -346,7 +391,11 @@ function MealSlotActionSheet({
           </div>
 
           <div className="flex items-center justify-between px-4 py-2">
-            {mode === "swap" ? (
+            {mode === "menu" ? (
+              <Dialog.Close className="text-[17px] text-blue active:opacity-60">
+                閉じる
+              </Dialog.Close>
+            ) : (
               <button
                 type="button"
                 onClick={() => setMode("menu")}
@@ -354,18 +403,113 @@ function MealSlotActionSheet({
               >
                 戻る
               </button>
-            ) : (
-              <Dialog.Close className="text-[17px] text-blue active:opacity-60">
-                閉じる
-              </Dialog.Close>
             )}
             <Dialog.Title className="truncate px-3 text-[17px] font-semibold text-label">
-              {mode === "swap" ? "レシピ差し替え" : slot.recipe_title || "メニュー操作"}
+              {mode === "swap"
+                ? "レシピ差し替え"
+                : mode === "ai"
+                ? "AIにおまかせ"
+                : slot.recipe_title || "メニュー操作"}
             </Dialog.Title>
             <span className="w-10" />
           </div>
 
-          {mode === "menu" ? (
+          {mode === "ai" ? (
+            <div className="flex flex-col px-4 pb-4 pt-2">
+              {/* 自由入力欄 */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  fetchAiCandidates(aiFreeText.trim() || undefined);
+                }}
+              >
+                <div className="relative">
+                  <Sparkles
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-purple"
+                    strokeWidth={2}
+                  />
+                  <input
+                    type="text"
+                    value={aiFreeText}
+                    onChange={(e) => setAiFreeText(e.target.value)}
+                    placeholder="さっぱりしたい・肉系 など（任意）"
+                    className="w-full rounded-[10px] bg-fill-tertiary py-2.5 pl-9 pr-20 text-[15px] text-label placeholder:text-label-tertiary focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={aiLoading}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-[7px] bg-purple px-2.5 py-1 text-[12px] font-semibold text-white active:opacity-70 disabled:opacity-40"
+                  >
+                    再提案
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-3 max-h-[55vh] overflow-y-auto">
+                {aiLoading ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-10">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple border-t-transparent" />
+                    <p className="text-[13px] text-label-tertiary">AIが候補を考えています…</p>
+                  </div>
+                ) : aiError ? (
+                  <div className="flex flex-col items-center gap-3 py-10 text-center">
+                    <p className="text-[13px] text-red">{aiError}</p>
+                    <button
+                      type="button"
+                      onClick={() => fetchAiCandidates(aiFreeText.trim() || undefined)}
+                      className="rounded-[10px] bg-fill px-4 py-2 text-[13px] font-medium text-blue active:bg-fill-secondary"
+                    >
+                      もう一度試す
+                    </button>
+                  </div>
+                ) : aiCandidates.length === 0 ? (
+                  <div className="py-10 text-center text-[13px] text-label-tertiary">
+                    候補なし
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {aiCandidates.map((c, idx) => (
+                      <button
+                        key={c.recipe_id}
+                        type="button"
+                        onClick={() => onSwap(c.recipe_id)}
+                        disabled={acting}
+                        className="flex flex-col gap-1.5 rounded-[12px] bg-bg-grouped-secondary p-3.5 text-left active:bg-fill disabled:opacity-50"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple/15 text-[11px] font-bold text-purple">
+                            {idx + 1}
+                          </span>
+                          <span className="flex-1 text-[17px] font-medium text-label">
+                            {c.title}
+                          </span>
+                          {c.cook_method === "hotcook" && (
+                            <ChefHat
+                              size={13}
+                              className="mt-1 shrink-0 text-label-tertiary"
+                              strokeWidth={1.5}
+                            />
+                          )}
+                        </div>
+                        <div className="flex items-start gap-2 pl-7">
+                          <p className="flex-1 text-[13px] leading-[18px] text-label-secondary">
+                            {c.reason}
+                          </p>
+                        </div>
+                        {c.cook_time_min != null && (
+                          <div className="flex items-center gap-1 pl-7 text-[11px] text-label-tertiary">
+                            <Clock size={10} strokeWidth={2} />
+                            {c.cook_time_min}分
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : mode === "menu" ? (
             <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
               {slot.recipe_id && (
                 <Link
@@ -385,6 +529,18 @@ function MealSlotActionSheet({
               >
                 <ChefHat size={18} strokeWidth={2} />
                 作った（在庫から減算）
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("ai");
+                  fetchAiCandidates();
+                }}
+                disabled={acting}
+                className="flex h-12 items-center gap-3 rounded-[10px] bg-bg-grouped-secondary px-4 text-[17px] font-medium text-purple active:bg-fill disabled:opacity-50"
+              >
+                <Sparkles size={18} strokeWidth={2} />
+                AIにおまかせ
               </button>
               <button
                 type="button"

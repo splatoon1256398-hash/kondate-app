@@ -1,9 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Refrigerator, Plus, Trash2, X, AlertTriangle, Pin, Sparkles } from "lucide-react";
+import Link from "next/link";
+import {
+  Refrigerator,
+  Plus,
+  Trash2,
+  X,
+  AlertTriangle,
+  Pin,
+  Sparkles,
+  Search,
+  ChefHat,
+  Heart,
+} from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { PantryItem } from "@/types/pantry";
+import type { RecipeListItem } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
 
 const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: number }> = {
@@ -47,6 +60,7 @@ export default function PantryList() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<PantryTab>("week");
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [lookupIngredient, setLookupIngredient] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -208,7 +222,13 @@ export default function PantryList() {
                   key={item.id}
                   className="flex items-center gap-1 rounded-full bg-blue/10 px-2.5 py-1 text-[13px] font-medium text-blue"
                 >
-                  {item.name}
+                  <button
+                    type="button"
+                    onClick={() => setLookupIngredient(item.name)}
+                    className="active:opacity-60"
+                  >
+                    {item.name}
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleStaple(item.id, true)}
@@ -253,7 +273,11 @@ export default function PantryList() {
                     key={item.id}
                     className="flex min-h-[44px] items-center px-4 py-2.5"
                   >
-                    <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setLookupIngredient(item.name)}
+                      className="flex min-w-0 flex-1 flex-col text-left active:opacity-60"
+                    >
                       <div className="flex items-center gap-1.5">
                         {(isExpired(item.expiry_date) || isExpiringSoon(item.expiry_date)) && (
                           <AlertTriangle
@@ -263,6 +287,12 @@ export default function PantryList() {
                           />
                         )}
                         <span className="text-[17px] text-label">{item.name}</span>
+                        <Search
+                          size={11}
+                          className="text-label-tertiary"
+                          strokeWidth={2}
+                          aria-label="この食材のレシピを探す"
+                        />
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-[12px] text-label-tertiary">
                         {item.amount != null && (
@@ -277,7 +307,7 @@ export default function PantryList() {
                           </span>
                         )}
                       </div>
-                    </div>
+                    </button>
                     <div className="ml-2 flex shrink-0 gap-0.5">
                       <button
                         type="button"
@@ -310,6 +340,12 @@ export default function PantryList() {
         <PantryAddDialog onAdd={handleAdd} />
       </div>
 
+      {/* Ingredient → recipes lookup dialog */}
+      <IngredientRecipesDialog
+        ingredient={lookupIngredient}
+        onClose={() => setLookupIngredient(null)}
+      />
+
       {/* Weekly reset dialog */}
       <WeeklyResetDialog
         open={showResetDialog}
@@ -325,6 +361,121 @@ export default function PantryList() {
         }}
       />
     </div>
+  );
+}
+
+function IngredientRecipesDialog({
+  ingredient,
+  onClose,
+}: {
+  ingredient: string | null;
+  onClose: () => void;
+}) {
+  const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const open = ingredient != null;
+
+  useEffect(() => {
+    if (!ingredient) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setRecipes([]);
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/recipes/by-ingredient?name=${encodeURIComponent(ingredient)}&limit=50`
+        );
+        const json: ApiResponse<RecipeListItem[]> = await res.json();
+        if (cancelled) return;
+        if (json.error || !json.data) {
+          setError(json.error || "取得に失敗しました");
+        } else {
+          setRecipes(json.data);
+        }
+      } catch {
+        if (!cancelled) setError("通信エラー");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ingredient]);
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(v) => !v && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" />
+        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-h-[85vh] max-w-lg overflow-hidden rounded-t-[14px] bg-bg-secondary pb-safe shadow-2xl">
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="h-1 w-9 rounded-full bg-gray3" />
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-2">
+            <Dialog.Close className="text-[17px] text-blue active:opacity-60">
+              閉じる
+            </Dialog.Close>
+            <Dialog.Title className="truncate px-3 text-[17px] font-semibold text-label">
+              「{ingredient}」を使うレシピ
+            </Dialog.Title>
+            <span className="w-10" />
+          </div>
+
+          <div className="px-4 pb-4 pt-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue border-t-transparent" />
+              </div>
+            ) : error ? (
+              <div className="py-10 text-center text-[13px] text-red">{error}</div>
+            ) : recipes.length === 0 ? (
+              <div className="py-10 text-center text-[13px] text-label-tertiary">
+                このアプリ内には「{ingredient}」を使うレシピがまだありません
+              </div>
+            ) : (
+              <>
+                <p className="mb-2 px-1 text-[12px] text-label-tertiary">
+                  {recipes.length}件ヒット
+                </p>
+                <div className="cell-separator max-h-[60vh] overflow-y-auto rounded-[10px] bg-bg-grouped-secondary">
+                  {recipes.map((r) => (
+                    <Link
+                      key={r.id}
+                      href={`/menu/${r.id}`}
+                      onClick={onClose}
+                      className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left active:bg-fill"
+                    >
+                      {r.is_favorite && (
+                        <Heart size={12} className="shrink-0 fill-red text-red" />
+                      )}
+                      <span className="flex-1 truncate text-[17px] text-label">
+                        {r.title}
+                      </span>
+                      {r.cook_time_min != null && (
+                        <span className="shrink-0 text-[12px] text-label-tertiary">
+                          {r.cook_time_min}分
+                        </span>
+                      )}
+                      {r.cook_method === "hotcook" && (
+                        <ChefHat
+                          size={12}
+                          className="shrink-0 text-label-tertiary"
+                          strokeWidth={1.5}
+                        />
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
