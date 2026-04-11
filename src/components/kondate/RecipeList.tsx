@@ -32,7 +32,9 @@ export default function RecipeList() {
   const favoriteOnly = searchParams.get("favorite") === "true";
 
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 初回ロードのみ spinner を出す。以降の再フェッチはバックグラウンドで
+  // recipes を保持したまま上書き（スクロール復元との衝突回避）。
+  const [initialLoading, setInitialLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
   // 検索入力は URL より先行して保持（デバウンス後に URL へ反映）
   const [queryDraft, setQueryDraft] = useState(urlQuery);
@@ -65,10 +67,10 @@ export default function RecipeList() {
     return () => clearTimeout(timer);
   }, [queryDraft, urlQuery, updateSearchParams]);
 
-  // Fetch (URL state が変わるたびに実行)
+  // Fetch (URL state が変わるたびに実行)。バックグラウンドで走り、
+  // 既存の recipes は表示したまま結果を差し替える（= 戻り時に黒画面にならない）
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     (async () => {
       try {
         const params = new URLSearchParams();
@@ -83,7 +85,7 @@ export default function RecipeList() {
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setInitialLoading(false);
       }
     })();
     return () => {
@@ -200,7 +202,7 @@ export default function RecipeList() {
 
       {/* List */}
       <div className="mt-4 px-4">
-        {loading ? (
+        {recipes.length === 0 && initialLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue border-t-transparent" />
           </div>

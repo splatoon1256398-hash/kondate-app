@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail as RecipeDetailType } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import { cleanSteps } from "@/lib/utils/recipe-step-filter";
 
 type Props = {
   recipeId: string;
@@ -27,8 +28,8 @@ export default function RecipeDetail({ recipeId, servings }: Props) {
         const json: ApiResponse<RecipeDetailType> = await res.json();
         if (json.error) {
           setError(json.error);
-        } else {
-          setRecipe(json.data);
+        } else if (json.data) {
+          setRecipe({ ...json.data, steps: cleanSteps(json.data.steps) });
         }
       } catch {
         setError("レシピの取得に失敗しました");

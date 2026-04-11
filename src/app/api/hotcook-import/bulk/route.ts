@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cleanSteps } from "@/lib/utils/recipe-step-filter";
 import type { ApiResponse } from "@/types/common";
 
 const MODEL = "KN-HW24G";
@@ -172,13 +173,15 @@ async function fetchAndParseRecipe(recipeId: string) {
   const rawSteps = raw.steps || [];
   const stepSource = rawMethods.length > 0 ? rawMethods : rawSteps;
 
-  const steps = stepSource
+  const parsedSteps = stepSource
     .filter((s) => (s as { text?: string }).text || (s as { description?: string }).description || (s as { renderedHtml?: string }).renderedHtml)
     .map((s, idx) => ({
       step_number: idx + 1,
       instruction: ((s as { text?: string }).text || (s as { description?: string }).description || (s as { renderedHtml?: string }).renderedHtml || "").trim(),
       tip: null as string | null,
     }));
+  // COCORO+ に含まれる広告・リンク・コラボ文をインポート時点で除去
+  const steps = cleanSteps(parsedSteps);
 
   return { title, menuNo, mixingUnit, servingsBase, cookTimeMin, ingredients, steps };
 }

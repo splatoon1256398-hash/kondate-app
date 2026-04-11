@@ -5,6 +5,7 @@ import { X, ChevronLeft, ChevronRight, ChefHat, Lightbulb, Check, ListOrdered } 
 import { useRouter } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import { cleanSteps } from "@/lib/utils/recipe-step-filter";
 
 type Props = {
   recipeId: string;
@@ -23,7 +24,10 @@ export default function CookingMode({ recipeId }: Props) {
     async function load() {
       const res = await fetch(`/api/recipes/${recipeId}`);
       const json: ApiResponse<RecipeDetail> = await res.json();
-      if (json.data) setRecipe(json.data);
+      if (json.data) {
+        // インポートされた広告ステップを除去
+        setRecipe({ ...json.data, steps: cleanSteps(json.data.steps) });
+      }
       setLoading(false);
     }
     load();

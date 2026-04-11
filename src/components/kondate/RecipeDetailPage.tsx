@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import { cleanSteps } from "@/lib/utils/recipe-step-filter";
 import RatingStars from "./RatingStars";
 
 type Props = {
@@ -28,8 +29,9 @@ export default function RecipeDetailPage({ recipeId }: Props) {
         const json: ApiResponse<RecipeDetail> = await res.json();
         if (json.error) {
           setError(json.error);
-        } else {
-          setRecipe(json.data);
+        } else if (json.data) {
+          // インポート済みレシピの広告・リンク行を表示層で除去
+          setRecipe({ ...json.data, steps: cleanSteps(json.data.steps) });
         }
       } catch {
         setError("レシピの取得に失敗しました");
