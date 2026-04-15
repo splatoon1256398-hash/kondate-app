@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import { formatIngredientAmount } from "@/lib/utils/format-ingredient";
 import RatingStars from "./RatingStars";
 
 type Props = {
@@ -205,7 +206,7 @@ export default function RecipeDetailPage({ recipeId }: Props) {
               <div key={ing.id} className="flex min-h-[44px] items-center justify-between px-4 py-2.5">
                 <span className="text-[17px] text-label">{ing.name}</span>
                 <span className="text-[15px] text-label-secondary">
-                  {ing.amount} {ing.unit}
+                  {formatIngredientAmount(ing.amount, ing.unit)}
                 </span>
               </div>
             ))}

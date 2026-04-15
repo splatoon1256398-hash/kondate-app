@@ -123,7 +123,7 @@ type CocoroPlusRecipe = {
   servings?: string;
   menuNo?: string;
   mixingUnit?: string;
-  materials?: { name?: string; quantity?: string; orderNumber?: number }[];
+  materials?: { name?: string; quantity?: string; orderNumber?: number; group?: string | null }[];
   ingredients?: { name?: string; amount?: string }[];
   methods?: { text?: string; renderedHtml?: string; orderNumber?: number }[];
   steps?: { description?: string; tips?: string }[];
@@ -157,13 +157,16 @@ async function fetchAndParseRecipe(recipeId: string) {
   const ingredients = ingredientSource
     .filter((i) => i.name || (i as { name?: string }).name)
     .map((i, idx) => {
-      const name = (i.name || "").trim();
+      const baseName = (i.name || "").trim();
       const qtyStr = (i as { quantity?: string; amount?: string }).quantity ||
                      (i as { amount?: string }).amount || "";
+      const group = (i as { group?: string | null }).group;
       const numMatch = qtyStr.match(/^[\d.]+/);
       const amount = numMatch ? parseFloat(numMatch[0]) : 0;
       const unit = numMatch ? qtyStr.slice(numMatch[0].length).trim() : qtyStr.trim();
-      return { name, amount, unit: unit || "適量", sort_order: idx + 1 };
+      // Prefix A/B group (e.g. "A ", "B ") so downstream display/step references stay consistent.
+      const groupPrefix = group ? String(group).trim() + " " : "";
+      return { name: groupPrefix + baseName, amount, unit: unit || "適量", sort_order: idx + 1 };
     })
     .filter((i) => i.name);
 

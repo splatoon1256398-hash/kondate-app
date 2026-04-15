@@ -5,6 +5,7 @@ import { X, ChevronLeft, ChevronRight, ChefHat, Lightbulb, Check, ListOrdered } 
 import { useRouter } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import { formatIngredientAmount } from "@/lib/utils/format-ingredient";
 
 type Props = {
   recipeId: string;
@@ -181,7 +182,7 @@ export default function CookingMode({ recipeId }: Props) {
                 >
                   <span className="text-[17px] text-label">{ing.name}</span>
                   <span className="text-[15px] text-label-secondary">
-                    {ing.amount} {ing.unit}
+                    {formatIngredientAmount(ing.amount, ing.unit)}
                   </span>
                 </div>
               ))}
@@ -205,7 +206,7 @@ export default function CookingMode({ recipeId }: Props) {
                 >
                   <span className="text-[15px] text-label">{ing.name}</span>
                   <span className="text-[13px] text-label-secondary">
-                    {ing.amount} {ing.unit}
+                    {formatIngredientAmount(ing.amount, ing.unit)}
                   </span>
                 </div>
               ))}

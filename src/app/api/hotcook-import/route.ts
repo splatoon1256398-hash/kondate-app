@@ -45,7 +45,7 @@ type HotcookRecipeResponse = {
   name?: string;
   cookingTime?: string;
   quantity?: string;
-  materials?: { name?: string; quantity?: string; orderNumber?: number }[];
+  materials?: { name?: string; quantity?: string; orderNumber?: number; group?: string | null }[];
   methods?: { text?: string; renderedHtml?: string; orderNumber?: number }[];
   imageUrl?: string;
   // Old API format (fallbacks)
@@ -130,12 +130,12 @@ export async function POST(request: NextRequest) {
     const cookTimeMatch = cookTimeStr.match(/(\d+)/);
     const cookTimeMin = cookTimeMatch ? parseInt(cookTimeMatch[1]) : null;
 
-    // Parse ingredients — new format: materials[].quantity, old format: ingredients[].amount
+    // Parse ingredients — new format: materials[].quantity + .group, old format: ingredients[].amount
     const rawMaterials = raw.materials || [];
     const rawIngredients = raw.ingredients || [];
     const ingredientSource = rawMaterials.length > 0
-      ? rawMaterials.map((m) => ({ name: m.name, amount: m.quantity }))
-      : rawIngredients;
+      ? rawMaterials.map((m) => ({ name: m.name, amount: m.quantity, group: m.group }))
+      : rawIngredients.map((i) => ({ name: i.name, amount: i.amount, group: null as string | null }));
 
     const ingredients = ingredientSource
       .filter((i) => i.name)
@@ -144,8 +144,12 @@ export async function POST(request: NextRequest) {
         const numMatch = amountStr.match(/^[\d.]+/);
         const amount = numMatch ? parseFloat(numMatch[0]) : 0;
         const unit = numMatch ? amountStr.slice(numMatch[0].length).trim() : amountStr.trim();
+        // Prefix A/B group (e.g. "A ", "B ") to name so it matches the original Hotcook display
+        // and step references like "[A]を入れる" remain meaningful.
+        const groupPrefix = i.group ? String(i.group).trim() + " " : "";
+        const baseName = i.name!.trim();
         return {
-          name: i.name!.trim(),
+          name: groupPrefix + baseName,
           amount,
           unit: unit || "適量",
           sort_order: idx + 1,
