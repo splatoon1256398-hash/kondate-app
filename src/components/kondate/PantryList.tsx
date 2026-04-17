@@ -19,6 +19,7 @@ import type { PantryItem } from "@/types/pantry";
 import type { RecipeListItem } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
 import { daysLeft, residualLabel } from "@/lib/utils/pantry-freshness";
+import UseUpPlanDialog from "./UseUpPlanDialog";
 
 const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: number }> = {
   meat_fish:  { label: "肉・魚",     emoji: "\ud83e\udd69", order: 0 },
@@ -62,6 +63,7 @@ export default function PantryList() {
   const [tab, setTab] = useState<PantryTab>("week");
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [lookupIngredient, setLookupIngredient] = useState<string | null>(null);
+  const [showUseUpPlan, setShowUseUpPlan] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -186,6 +188,29 @@ export default function PantryList() {
           ))}
         </div>
       </div>
+
+      {/* Use-up plan CTA (week タブ & 在庫あり時のみ、大きめ) */}
+      {tab === "week" && weekItems.length > 0 && (
+        <div className="mb-3 px-4">
+          <button
+            type="button"
+            onClick={() => setShowUseUpPlan(true)}
+            className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] bg-gradient-to-br from-purple to-indigo px-4 py-3.5 text-left text-white shadow-sm active:opacity-90"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-white/20">
+              <Sparkles size={18} strokeWidth={2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-semibold leading-tight">
+                今週の使い切り計画を立てる
+              </p>
+              <p className="mt-0.5 text-[12px] leading-tight text-white/80">
+                在庫をフル活用して1週間の献立をAIが一発提案
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Weekly reset button (week タブのみ) */}
       {tab === "week" && weekItems.length > 0 && (
@@ -376,6 +401,12 @@ export default function PantryList() {
             )
           );
         }}
+      />
+
+      {/* Use-up plan dialog */}
+      <UseUpPlanDialog
+        open={showUseUpPlan}
+        onOpenChange={setShowUseUpPlan}
       />
     </div>
   );
