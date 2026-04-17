@@ -13,6 +13,12 @@ import {
   sortByInventoryPriority,
   type InventoryMatch,
 } from "@/lib/utils/inventory-match";
+import {
+  getRecipeRatingsMap,
+  formatRatingTag,
+  buildRatingPreferenceSection,
+  isLowRated,
+} from "@/lib/utils/rating-map";
 
 // Gemini 2.5 Flash thinking + FC を含めても余裕を見て
 export const maxDuration = 90;
@@ -29,6 +35,8 @@ export type ConsultCandidate = {
   cook_method: "hotcook" | "stove" | "other";
   cook_time_min: number | null;
   inventory?: InventoryMatch | null;
+  is_favorite?: boolean;
+  rating?: { avg: number | null; count: number } | null;
 };
 
 export type ConsultSSEEvent =
@@ -111,7 +119,7 @@ async function buildSystemPrompt(
       .order("date", { ascending: false }),
     supabase
       .from("recipes")
-      .select("id, title, cook_method, cook_time_min")
+      .select("id, title, cook_method, cook_time_min, is_favorite")
       .order("created_at", { ascending: false })
       .limit(300),
     supabase
@@ -143,6 +151,13 @@ async function buildSystemPrompt(
 
   const urgentSection = buildUrgentConsumeSection(nonStaplePantry);
 
+  // rating 情報取得（全件）
+  const ratingMap = await getRecipeRatingsMap(supabase);
+  const hasAnyFavorite = ((availableRecipes || []) as {
+    is_favorite?: boolean;
+  }[]).some((r) => r.is_favorite === true);
+  const ratingSection = buildRatingPreferenceSection(ratingMap, hasAnyFavorite);
+
   const recentText = ((recentSlots as unknown as {
     date: string;
     meal_type: string;
@@ -160,10 +175,11 @@ async function buildSystemPrompt(
         title: string;
         cook_method: string;
         cook_time_min: number | null;
+        is_favorite?: boolean;
       }) =>
         `- [${r.id}] ${r.title}（${r.cook_method}${
           r.cook_time_min ? `, ${r.cook_time_min}分` : ""
-        }）`
+        }）${formatRatingTag(ratingMap.get(r.id), r.is_favorite === true)}`
     )
     .join("\n");
 
@@ -197,6 +213,7 @@ ${urgentSection}
 `
     : ""
 }
+${ratingSection || ""}
 ## 🥬 冷蔵庫の残り食材（残日数つき）
 ${pantryText}
 
@@ -219,10 +236,12 @@ ${recipesList || "（DB空）"}
           title: string;
           cook_method: string;
           cook_time_min: number | null;
+          is_favorite?: boolean;
         }) => [r.id, r]
       )
     ),
     nonStaplePantry,
+    ratingMap,
   };
 }
 
@@ -244,11 +263,8 @@ export async function POST(request: NextRequest) {
     const supabase = createSupabaseServerClient();
     const gemini = getGeminiClient();
 
-    const { systemPrompt, candidatesByIdMap, nonStaplePantry } = await buildSystemPrompt(
-      supabase,
-      targetDate,
-      targetMealType
-    );
+    const { systemPrompt, candidatesByIdMap, nonStaplePantry, ratingMap } =
+      await buildSystemPrompt(supabase, targetDate, targetMealType);
 
     let closed = false;
     let aborted = false;
@@ -319,10 +335,13 @@ export async function POST(request: NextRequest) {
                       title: string;
                       cook_method: string;
                       cook_time_min: number | null;
+                      is_favorite?: boolean;
                     }
                   | undefined;
                 if (!match) continue;
                 if (resolved.find((x) => x.recipe_id === match.id)) continue;
+                const r = ratingMap.get(match.id);
+                if (!match.is_favorite && isLowRated(r)) continue;
                 resolved.push({
                   recipe_id: match.id,
                   title: match.title,
@@ -330,6 +349,8 @@ export async function POST(request: NextRequest) {
                   cook_method:
                     (match.cook_method as "hotcook" | "stove" | "other") || "other",
                   cook_time_min: match.cook_time_min,
+                  is_favorite: match.is_favorite === true,
+                  rating: r ? { avg: r.avg, count: r.count } : null,
                 });
                 if (resolved.length >= 3) break;
               }

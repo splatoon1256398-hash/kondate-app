@@ -21,6 +21,7 @@ import {
   Clock,
   Leaf,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import type { MealSlotResponse } from "@/types/weekly-menu";
 import type { RecipeListItem } from "@/types/recipe";
@@ -34,6 +35,8 @@ type AiCandidate = {
   cook_method: "hotcook" | "stove" | "other";
   cook_time_min: number | null;
   inventory?: InventoryMatch | null;
+  is_favorite?: boolean;
+  rating?: { avg: number | null; count: number } | null;
 };
 
 type Props = {
@@ -290,6 +293,43 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
 }
 
 /**
+ * ♥殿堂入り / ★評価バッジ
+ */
+function RatingBadge({
+  isFavorite,
+  rating,
+}: {
+  isFavorite?: boolean;
+  rating?: { avg: number | null; count: number } | null;
+}) {
+  if (isFavorite) {
+    return (
+      <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-2 py-0.5 text-[11px] font-semibold text-red">
+        <Heart size={9} className="fill-red" strokeWidth={2} />
+        殿堂入り
+        {rating?.avg != null && <span className="ml-0.5">★{rating.avg.toFixed(1)}</span>}
+      </span>
+    );
+  }
+  if (!rating || rating.count === 0 || rating.avg == null) return null;
+  const avg = rating.avg;
+  const tone =
+    avg >= 4
+      ? "bg-yellow/15 text-orange"
+      : avg >= 3
+      ? "bg-fill text-label-secondary"
+      : "bg-fill text-label-tertiary";
+  return (
+    <span
+      className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}
+    >
+      <Star size={9} strokeWidth={2} />
+      {avg.toFixed(1)}
+    </span>
+  );
+}
+
+/**
  * 在庫マッチ / 鮮度🔴 使い切り バッジ
  * サーバ側で計算された値を信頼してそのまま表示
  */
@@ -536,6 +576,10 @@ function MealSlotActionSheet({
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 pl-7">
+                          <RatingBadge
+                            isFavorite={c.is_favorite}
+                            rating={c.rating}
+                          />
                           <InventoryBadges inventory={c.inventory} />
                           {c.cook_time_min != null && (
                             <span className="flex items-center gap-0.5 text-[11px] text-label-tertiary">

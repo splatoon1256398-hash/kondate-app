@@ -4,6 +4,12 @@ import {
   formatPantryLineForAi,
   buildUrgentConsumeSection,
 } from "@/lib/utils/pantry-freshness";
+import {
+  getRecipeRatingsMap,
+  formatRatingTag,
+  buildRatingPreferenceSection,
+  type RatingSummary,
+} from "@/lib/utils/rating-map";
 
 export type MealPlanContext = {
   today: string;
@@ -15,6 +21,8 @@ export type MealPlanContext = {
     title: string;
   }[];
   favoriteRecipes: { id: string; title: string; cook_method: string }[];
+  ratingMap?: Map<string, RatingSummary>;
+  favoriteIds?: Set<string>;
   pantryItems: {
     name: string;
     amount: number | null;
@@ -34,6 +42,10 @@ export function buildSystemPrompt(context: MealPlanContext): string {
   const nonStaplePantry = context.pantryItems.filter((i) => !i.is_staple);
   const stapleItems = context.pantryItems.filter((i) => i.is_staple);
   const urgentSection = buildUrgentConsumeSection(nonStaplePantry);
+  const ratingMap = context.ratingMap || new Map<string, RatingSummary>();
+  const favIds = context.favoriteIds || new Set<string>();
+  const hasAnyFavorite = context.favoriteRecipes.length > 0;
+  const ratingSection = buildRatingPreferenceSection(ratingMap, hasAnyFavorite);
 
   return `あなたは在庫ファーストなホットクック献立アドバイザーです。
 
@@ -84,12 +96,13 @@ ${stapleItems.length > 0
     ? stapleItems.map((i) => `- ${i.name}`).join("\n")
     : "（未登録）"}
 
+${ratingSection || ""}
 ## 📋 利用可能なレシピDB（${context.availableRecipes.length}件）
 以下のレシピはDBに登録済み。**recipe_id で参照して使うこと**：
 
 ${context.availableRecipes.length > 0
     ? context.availableRecipes
-        .map((r) => `- [${r.id}] ${r.title}（${r.cook_method}${r.cook_time_min ? `, ${r.cook_time_min}分` : ""}）`)
+        .map((r) => `- [${r.id}] ${r.title}（${r.cook_method}${r.cook_time_min ? `, ${r.cook_time_min}分` : ""}）${formatRatingTag(ratingMap.get(r.id), favIds.has(r.id))}`)
         .join("\n")
     : "（DB空）"}
 
@@ -149,6 +162,7 @@ export async function buildContext(
     { data: favorites },
     { data: pantry },
     { data: allRecipes },
+    ratingMap,
   ] = await Promise.all([
     supabase
       .from("meal_slots")
@@ -171,7 +185,12 @@ export async function buildContext(
       .select("id, title, cook_method, cook_time_min")
       .order("created_at", { ascending: false })
       .limit(300),
+    getRecipeRatingsMap(supabase),
   ]);
+
+  const favoriteIds = new Set(
+    (favorites || []).map((r: { id: string }) => r.id)
+  );
 
   return {
     today,
@@ -224,5 +243,7 @@ export async function buildContext(
         cook_time_min: r.cook_time_min,
       })
     ),
+    ratingMap,
+    favoriteIds,
   };
 }

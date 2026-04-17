@@ -13,6 +13,12 @@ import {
   type InventoryMatch,
 } from "@/lib/utils/inventory-match";
 import {
+  getRecipeRatingsMap,
+  formatRatingTag,
+  buildRatingPreferenceSection,
+  isLowRated,
+} from "@/lib/utils/rating-map";
+import {
   formatDate,
   getMonday,
   getWeekDays,
@@ -48,6 +54,8 @@ export type UseUpSlot = {
   cook_method: "hotcook" | "stove" | "other";
   cook_time_min: number | null;
   inventory?: InventoryMatch | null;
+  is_favorite?: boolean;
+  rating?: { avg: number | null; count: number } | null;
 };
 
 export type PantryUsageEntry = {
@@ -121,6 +129,7 @@ type RecipeRow = {
   title: string;
   cook_method: string;
   cook_time_min: number | null;
+  is_favorite?: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -160,10 +169,16 @@ export async function POST(request: NextRequest) {
         .order("date", { ascending: false }),
       supabase
         .from("recipes")
-        .select("id, title, cook_method, cook_time_min")
+        .select("id, title, cook_method, cook_time_min, is_favorite")
         .order("created_at", { ascending: false })
         .limit(300),
     ]);
+
+    const ratingMap = await getRecipeRatingsMap(supabase);
+    const hasAnyFavorite = ((availableRecipes || []) as RecipeRow[]).some(
+      (r) => r.is_favorite === true
+    );
+    const ratingSection = buildRatingPreferenceSection(ratingMap, hasAnyFavorite);
 
     const nonStaplePantry = ((pantry || []) as PantryRow[]).filter(
       (i) => !i.is_staple && (i.category || "other") !== "seasoning"
@@ -195,7 +210,7 @@ export async function POST(request: NextRequest) {
         (r) =>
           `- [${r.id}] ${r.title}（${r.cook_method}${
             r.cook_time_min ? `, ${r.cook_time_min}分` : ""
-          }）`
+          }）${formatRatingTag(ratingMap.get(r.id), r.is_favorite === true)}`
       )
       .join("\n");
 
@@ -235,6 +250,7 @@ ${urgentSection}
 `
     : ""
 }
+${ratingSection || ""}
 ## 🥬 冷蔵庫の在庫（全部・残日数つき）
 ${pantryText}
 
@@ -296,6 +312,9 @@ ${recipesList || "（DB空）"}
       if (uniqKey.has(key)) continue;
       const recipe = recipeMap.get(s.recipe_id);
       if (!recipe) continue;
+      const r = ratingMap.get(recipe.id);
+      // 殿堂入り以外で ★2.5 以下は弾く
+      if (!recipe.is_favorite && isLowRated(r)) continue;
       uniqKey.add(key);
       plan.push({
         date: s.date,
@@ -308,6 +327,8 @@ ${recipesList || "（DB空）"}
           (recipe.cook_method as "hotcook" | "stove" | "other") || "other",
         cook_time_min: recipe.cook_time_min,
         inventory: null,
+        is_favorite: recipe.is_favorite === true,
+        rating: r ? { avg: r.avg, count: r.count } : null,
       });
     }
 

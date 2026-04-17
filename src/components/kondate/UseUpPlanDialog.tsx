@@ -15,6 +15,8 @@ import {
   Refrigerator,
   Check,
   X,
+  Heart,
+  Star,
 } from "lucide-react";
 import type { ApiResponse } from "@/types/common";
 import type { UseUpWeekResponse } from "@/app/api/meal-plan/use-up-week/route";
@@ -456,25 +458,47 @@ function SlotRow({
             {slot.reason}
           </p>
         )}
-        {inv && inv.total > 0 && (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            <span
-              className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}
-            >
-              <Leaf size={9} strokeWidth={2} />
-              {inv.matched}/{inv.total}
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          {slot.is_favorite ? (
+            <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-1.5 py-0.5 text-[10px] font-semibold text-red">
+              <Heart size={9} className="fill-red" strokeWidth={2} />
+              殿堂入り
+              {slot.rating?.avg != null && (
+                <span className="ml-0.5">★{slot.rating.avg.toFixed(1)}</span>
+              )}
             </span>
-            {inv.near_expiry_used.length > 0 && (
-              <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-1.5 py-0.5 text-[10px] font-semibold text-red">
-                <AlertCircle size={9} strokeWidth={2} />
-                {inv.near_expiry_used[0]}
-                {inv.near_expiry_used.length > 1
-                  ? ` +${inv.near_expiry_used.length - 1}`
-                  : ""}
+          ) : slot.rating?.avg != null && slot.rating.count > 0 ? (
+            <span
+              className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                slot.rating.avg >= 4
+                  ? "bg-yellow/15 text-orange"
+                  : "bg-fill text-label-secondary"
+              }`}
+            >
+              <Star size={9} strokeWidth={2} />
+              {slot.rating.avg.toFixed(1)}
+            </span>
+          ) : null}
+          {inv && inv.total > 0 && (
+            <>
+              <span
+                className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}
+              >
+                <Leaf size={9} strokeWidth={2} />
+                {inv.matched}/{inv.total}
               </span>
-            )}
-          </div>
-        )}
+              {inv.near_expiry_used.length > 0 && (
+                <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-1.5 py-0.5 text-[10px] font-semibold text-red">
+                  <AlertCircle size={9} strokeWidth={2} />
+                  {inv.near_expiry_used[0]}
+                  {inv.near_expiry_used.length > 1
+                    ? ` +${inv.near_expiry_used.length - 1}`
+                    : ""}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </Link>
   );
