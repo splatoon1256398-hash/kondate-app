@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatDate } from "@/lib/utils/date";
+import {
+  formatPantryLineForAi,
+  buildUrgentConsumeSection,
+} from "@/lib/utils/pantry-freshness";
 
 export type MealPlanContext = {
   today: string;
@@ -16,6 +20,7 @@ export type MealPlanContext = {
     amount: number | null;
     unit: string | null;
     is_staple: boolean;
+    expiry_date?: string | null;
   }[];
   availableRecipes: {
     id: string;
@@ -28,12 +33,13 @@ export type MealPlanContext = {
 export function buildSystemPrompt(context: MealPlanContext): string {
   const nonStaplePantry = context.pantryItems.filter((i) => !i.is_staple);
   const stapleItems = context.pantryItems.filter((i) => i.is_staple);
+  const urgentSection = buildUrgentConsumeSection(nonStaplePantry);
 
-  return `あなたはホットクック料理のプロフェッショナルな献立アドバイザーです。
+  return `あなたは在庫ファーストなホットクック献立アドバイザーです。
 
 ## 基本ルール
 - ホットクックで作れるレシピを優先提案する
-- 食材を無駄なく使い切る献立を組む
+- **在庫を使い切ることが最優先**（買い物は週1まとめ、食材を腐らせない）
 - 1人分と2人分の献立を区別する
 - meal_typeは「lunch」と「dinner」のみ（朝食なし）
 - ユーザーが「確定」「これでOK」等と言うまで save_weekly_menu を呼ばない
@@ -53,15 +59,24 @@ export function buildSystemPrompt(context: MealPlanContext): string {
 
 **必ず、DBレシピを優先して選ぶこと。新規生成は最後の手段。**
 
-## 🔴 重要: 冷蔵庫在庫の使い切りルール
-在庫にある食材（特に先週の残り）は **優先的に使い切る** こと：
+${
+  urgentSection
+    ? `## 🔴 最優先: 今すぐ使い切るべき食材（腐る前に）
+${urgentSection}
+
+**↑ 上記食材は今週の献立に必ず組み込むこと。スルーすると腐って無駄になる。**
+`
+    : ""
+}
+## 🥬 冷蔵庫在庫（残日数つき・使い切り前提で献立を組む）
 ${nonStaplePantry.length > 0
-    ? nonStaplePantry.map((i) => `- ${i.name}: ${i.amount ?? "?"}${i.unit ?? ""}`).join("\n")
+    ? nonStaplePantry.map(formatPantryLineForAi).join("\n")
     : "（在庫なし）"}
 
-- 上記食材が賞味期限切れる前に使い切るレシピを選ぶ/生成する
-- 特に肉・魚・野菜は早めに使う
-- ${nonStaplePantry.length > 0 ? "上記在庫が消費されるようなレシピを必ず1-2品は組み込むこと" : ""}
+- **在庫があるレシピを優先して選ぶ**（買い足しを最小限に）
+- 期限が近い食材ほど早い曜日のスロットに配置
+- 特に肉・魚・葉物野菜は早めに使う
+- ${nonStaplePantry.length > 0 ? "上記在庫の少なくとも半分以上が1週間の献立内で消費される設計にする" : ""}
 
 ## 🔴 重要: 常備品（always in kitchen）
 以下は常備品なので買い物リストには自動で追加されない：
@@ -149,7 +164,7 @@ export async function buildContext(
       .limit(30),
     supabase
       .from("pantry_items")
-      .select("name, amount, unit, is_staple")
+      .select("name, amount, unit, is_staple, expiry_date")
       .order("category"),
     supabase
       .from("recipes")
@@ -187,11 +202,13 @@ export async function buildContext(
         amount: number | null;
         unit: string | null;
         is_staple: boolean;
+        expiry_date: string | null;
       }) => ({
         name: i.name,
         amount: i.amount,
         unit: i.unit,
         is_staple: i.is_staple ?? false,
+        expiry_date: i.expiry_date ?? null,
       })
     ),
     availableRecipes: (allRecipes || []).map(

@@ -18,6 +18,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import type { PantryItem } from "@/types/pantry";
 import type { RecipeListItem } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import { daysLeft, residualLabel } from "@/lib/utils/pantry-freshness";
 
 const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: number }> = {
   meat_fish:  { label: "肉・魚",     emoji: "\ud83e\udd69", order: 0 },
@@ -302,9 +303,25 @@ export default function PantryList() {
                           </span>
                         )}
                         {item.expiry_date && (
-                          <span className={isExpired(item.expiry_date) ? "text-red" : ""}>
-                            ~{item.expiry_date.slice(5).replace("-", "/")}
-                          </span>
+                          <>
+                            <span className={isExpired(item.expiry_date) ? "text-red" : ""}>
+                              ~{item.expiry_date.slice(5).replace("-", "/")}
+                            </span>
+                            {(() => {
+                              const d = daysLeft(item.expiry_date);
+                              if (d == null) return null;
+                              const label = residualLabel(item.expiry_date);
+                              const color =
+                                d < 0
+                                  ? "text-red font-semibold"
+                                  : d <= 1
+                                  ? "text-red font-semibold"
+                                  : d <= 3
+                                  ? "text-orange font-semibold"
+                                  : "text-label-tertiary";
+                              return <span className={color}>{label}</span>;
+                            })()}
+                          </>
                         )}
                       </div>
                     </button>

@@ -3,6 +3,16 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGeminiClient } from "@/lib/gemini/client";
 import { formatDate } from "@/lib/utils/date";
 import type { Content, FunctionDeclaration, Part, Type } from "@google/genai";
+import {
+  formatPantryLineForAi,
+  buildUrgentConsumeSection,
+  redUrgencyNames,
+} from "@/lib/utils/pantry-freshness";
+import {
+  computeInventoryMatch,
+  sortByInventoryPriority,
+  type InventoryMatch,
+} from "@/lib/utils/inventory-match";
 
 // Gemini 2.5 Flash thinking + FC を含めても余裕を見て
 export const maxDuration = 90;
@@ -18,6 +28,7 @@ export type ConsultCandidate = {
   reason: string;
   cook_method: "hotcook" | "stove" | "other";
   cook_time_min: number | null;
+  inventory?: InventoryMatch | null;
 };
 
 export type ConsultSSEEvent =
@@ -88,7 +99,9 @@ async function buildSystemPrompt(
     { data: availableRecipes },
     { data: targetSlot },
   ] = await Promise.all([
-    supabase.from("pantry_items").select("name, amount, unit, is_staple, category"),
+    supabase
+      .from("pantry_items")
+      .select("name, amount, unit, is_staple, category, expiry_date"),
     supabase
       .from("meal_slots")
       .select("date, meal_type, recipes(title)")
@@ -109,20 +122,26 @@ async function buildSystemPrompt(
       .maybeSingle(),
   ]);
 
-  const nonStaplePantry = (pantry || []).filter(
+  const nonStaplePantry = (
+    pantry || []
+  ).filter(
     (i: { is_staple: boolean; category: string | null }) =>
       !i.is_staple && (i.category || "other") !== "seasoning"
-  );
+  ) as {
+    name: string;
+    amount: number | null;
+    unit: string | null;
+    is_staple: boolean;
+    category: string | null;
+    expiry_date: string | null;
+  }[];
 
   const pantryText =
     nonStaplePantry.length > 0
-      ? nonStaplePantry
-          .map(
-            (i: { name: string; amount: number | null; unit: string | null }) =>
-              `- ${i.name}${i.amount != null ? `: ${i.amount}${i.unit || ""}` : ""}`
-          )
-          .join("\n")
+      ? nonStaplePantry.map(formatPantryLineForAi).join("\n")
       : "（在庫なし）";
+
+  const urgentSection = buildUrgentConsumeSection(nonStaplePantry);
 
   const recentText = ((recentSlots as unknown as {
     date: string;
@@ -155,20 +174,30 @@ async function buildSystemPrompt(
   const mealLabel = targetMealType === "lunch" ? "昼食" : "夕食";
 
   return {
-    systemPrompt: `あなたは親しみやすい献立アドバイザーです。ユーザーは「今日/明日何作ろう」とカジュアルに相談してきます。
+    systemPrompt: `あなたは在庫ファーストな献立アドバイザーです。ユーザーは「今日/明日何作ろう」とカジュアルに相談してきます。
 
-## スタンス
-- カジュアルで短めの日本語（1-3文）
-- 提案するときは **suggest_dinner_candidates** ツールを必ず呼ぶ
-- レシピは必ず下の「利用可能なレシピDB」から選ぶ（recipe_id指定）
-- 新規レシピは作らない
+## 🔴 提案ルール（優先度順・厳守）
+1. 提案するときは **suggest_dinner_candidates** ツールを必ず呼ぶ
+2. レシピは必ず下の「利用可能なレシピDB」から選ぶ（recipe_id指定、新規生成禁止）
+3. **冷蔵庫にある食材を最大限使えるレシピを選ぶ**（買い物は週1まとめ、買い足しは最小限）
+4. **鮮度🔴/🟠 の食材があれば、それを使うレシピを必ず候補に含める**（腐らせない）
+5. 直近2週間と重複しないものを混ぜる（マンネリ回避）
 
 ## 対象日
 - 日付: ${targetDate}
 - 食事: ${mealLabel}
 - 現在の登録: ${currentSlotTitle}
 
-## 冷蔵庫の残り食材（使い切り優先）
+${
+  urgentSection
+    ? `## 🔴 今すぐ使い切るべき食材（腐る前に）
+${urgentSection}
+
+**↑ これらを使うレシピを候補に最低1つ入れること。**
+`
+    : ""
+}
+## 🥬 冷蔵庫の残り食材（残日数つき）
 ${pantryText}
 
 ## 直近2週間で作ったもの（マンネリ回避）
@@ -177,10 +206,12 @@ ${recentText || "（なし）"}
 ## 利用可能なレシピDB（${(availableRecipes || []).length}件）
 ${recipesList || "（DB空）"}
 
-## 応答のコツ
-- 候補を出す前に一言だけ共感や理由を添える（「疲れた日ならあっさり系が良さそう」等）
-- 候補は2〜3個。多すぎない
-- reason は「〇〇を使い切れる」「前回△△だったので変化を」のように具体的に1文`,
+## 応答スタイル
+- カジュアルで短めの日本語（1-3文）
+- 候補を出す前に一言だけ共感や理由を添える（「鶏もも使い切り行こうか」等）
+- 候補は2〜3個
+- reason は **「どの在庫食材を使えるか / 鮮度を回せるか」を必ず含めて** 具体的に1文
+  例: 「鶏もも(残2日)使い切れる」「豚こま在庫ありで作れる、買い足し不要」`,
     candidatesByIdMap: new Map(
       (availableRecipes || []).map(
         (r: {
@@ -191,6 +222,7 @@ ${recipesList || "（DB空）"}
         }) => [r.id, r]
       )
     ),
+    nonStaplePantry,
   };
 }
 
@@ -212,7 +244,7 @@ export async function POST(request: NextRequest) {
     const supabase = createSupabaseServerClient();
     const gemini = getGeminiClient();
 
-    const { systemPrompt, candidatesByIdMap } = await buildSystemPrompt(
+    const { systemPrompt, candidatesByIdMap, nonStaplePantry } = await buildSystemPrompt(
       supabase,
       targetDate,
       targetMealType
@@ -302,7 +334,39 @@ export async function POST(request: NextRequest) {
                 if (resolved.length >= 3) break;
               }
               if (resolved.length > 0) {
-                send({ type: "candidates", candidates: resolved });
+                // 在庫マッチを server-side 計算 → 鮮度優先でソート
+                try {
+                  const ids = resolved.map((r) => r.recipe_id);
+                  const { data: ingRows } = await supabase
+                    .from("recipe_ingredients")
+                    .select("recipe_id, name, amount, unit")
+                    .in("recipe_id", ids);
+
+                  const byRecipe = new Map<
+                    string,
+                    { name: string; amount: number | null; unit: string | null }[]
+                  >();
+                  for (const row of (ingRows || []) as {
+                    recipe_id: string;
+                    name: string;
+                    amount: number | null;
+                    unit: string | null;
+                  }[]) {
+                    const arr = byRecipe.get(row.recipe_id) || [];
+                    arr.push({ name: row.name, amount: row.amount, unit: row.unit });
+                    byRecipe.set(row.recipe_id, arr);
+                  }
+                  const redNames = redUrgencyNames(nonStaplePantry);
+                  for (const r of resolved) {
+                    const ings = byRecipe.get(r.recipe_id) || [];
+                    r.inventory = computeInventoryMatch(ings, nonStaplePantry, redNames);
+                  }
+                  const sorted = sortByInventoryPriority(resolved);
+                  send({ type: "candidates", candidates: sorted });
+                } catch {
+                  // 失敗してもUI表示は続行
+                  send({ type: "candidates", candidates: resolved });
+                }
               }
             }
           }

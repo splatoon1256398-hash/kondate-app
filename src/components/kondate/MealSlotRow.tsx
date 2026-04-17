@@ -19,10 +19,13 @@ import {
   RotateCcw,
   Sparkles,
   Clock,
+  Leaf,
+  AlertCircle,
 } from "lucide-react";
 import type { MealSlotResponse } from "@/types/weekly-menu";
 import type { RecipeListItem } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
+import type { InventoryMatch } from "@/lib/utils/inventory-match";
 
 type AiCandidate = {
   recipe_id: string;
@@ -30,6 +33,7 @@ type AiCandidate = {
   reason: string;
   cook_method: "hotcook" | "stove" | "other";
   cook_time_min: number | null;
+  inventory?: InventoryMatch | null;
 };
 
 type Props = {
@@ -286,6 +290,40 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
 }
 
 /**
+ * 在庫マッチ / 鮮度🔴 使い切り バッジ
+ * サーバ側で計算された値を信頼してそのまま表示
+ */
+function InventoryBadges({ inventory }: { inventory?: InventoryMatch | null }) {
+  if (!inventory || inventory.total === 0) return null;
+  const { matched, total, near_expiry_used } = inventory;
+  const ratio = matched / total;
+  // 色: 0.75以上=緑、0.5以上=青、それ以外=グレー
+  const tone =
+    ratio >= 0.75
+      ? "bg-green/15 text-green"
+      : ratio >= 0.5
+      ? "bg-blue/15 text-blue"
+      : "bg-fill text-label-tertiary";
+  return (
+    <>
+      <span
+        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}
+      >
+        <Leaf size={10} strokeWidth={2} />
+        在庫 {matched}/{total}
+      </span>
+      {near_expiry_used.length > 0 && (
+        <span className="flex items-center gap-1 rounded-full bg-red/15 px-2 py-0.5 text-[11px] font-semibold text-red">
+          <AlertCircle size={10} strokeWidth={2} />
+          {near_expiry_used[0]}
+          {near_expiry_used.length > 1 ? ` +${near_expiry_used.length - 1}` : ""} 使い切り
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
  * 献立スロット用のボトムシート。
  * - デフォルト: 調理 / 作った / スキップ / 差し替え
  * - 差し替えモード: レシピ名検索 → 選択で PATCH
@@ -497,12 +535,15 @@ function MealSlotActionSheet({
                             {c.reason}
                           </p>
                         </div>
-                        {c.cook_time_min != null && (
-                          <div className="flex items-center gap-1 pl-7 text-[11px] text-label-tertiary">
-                            <Clock size={10} strokeWidth={2} />
-                            {c.cook_time_min}分
-                          </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-1.5 pl-7">
+                          <InventoryBadges inventory={c.inventory} />
+                          {c.cook_time_min != null && (
+                            <span className="flex items-center gap-0.5 text-[11px] text-label-tertiary">
+                              <Clock size={10} strokeWidth={2} />
+                              {c.cook_time_min}分
+                            </span>
+                          )}
+                        </div>
                       </button>
                     ))}
                   </div>

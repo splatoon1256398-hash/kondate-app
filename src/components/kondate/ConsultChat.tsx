@@ -10,6 +10,8 @@ import {
   Clock,
   Check,
   Refrigerator,
+  Leaf,
+  AlertCircle,
 } from "lucide-react";
 import AiChatBubble from "./AiChatBubble";
 import type { ApiResponse } from "@/types/common";
@@ -17,6 +19,7 @@ import type {
   ConsultCandidate,
   ConsultSSEEvent,
 } from "@/app/api/consult/route";
+import type { InventoryMatch } from "@/lib/utils/inventory-match";
 
 type ConsultMessage = {
   role: "user" | "assistant";
@@ -425,15 +428,16 @@ export default function ConsultChat() {
                           <p className="pl-7 text-[13px] leading-[18px] text-label-secondary">
                             {c.reason}
                           </p>
-                          <div className="flex items-center justify-between pl-7">
-                            {c.cook_time_min != null ? (
-                              <div className="flex items-center gap-1 text-[11px] text-label-tertiary">
+                          <div className="flex flex-wrap items-center gap-1.5 pl-7">
+                            <InventoryBadges inventory={c.inventory} />
+                            {c.cook_time_min != null && (
+                              <span className="flex items-center gap-0.5 text-[11px] text-label-tertiary">
                                 <Clock size={10} strokeWidth={2} />
                                 {c.cook_time_min}分
-                              </div>
-                            ) : (
-                              <span />
+                              </span>
                             )}
+                          </div>
+                          <div className="flex items-center justify-end pl-7">
                             {applied ? (
                               <span className="flex items-center gap-1 text-[12px] font-semibold text-green">
                                 <Check size={12} strokeWidth={2.5} />
@@ -493,5 +497,37 @@ export default function ConsultChat() {
         </div>
       </form>
     </div>
+  );
+}
+
+/**
+ * 在庫マッチ / 鮮度🔴 使い切り バッジ（ConsultChat 内の候補カード用）
+ */
+function InventoryBadges({ inventory }: { inventory?: InventoryMatch | null }) {
+  if (!inventory || inventory.total === 0) return null;
+  const { matched, total, near_expiry_used } = inventory;
+  const ratio = matched / total;
+  const tone =
+    ratio >= 0.75
+      ? "bg-green/15 text-green"
+      : ratio >= 0.5
+      ? "bg-blue/15 text-blue"
+      : "bg-fill text-label-tertiary";
+  return (
+    <>
+      <span
+        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}
+      >
+        <Leaf size={10} strokeWidth={2} />
+        在庫 {matched}/{total}
+      </span>
+      {near_expiry_used.length > 0 && (
+        <span className="flex items-center gap-1 rounded-full bg-red/15 px-2 py-0.5 text-[11px] font-semibold text-red">
+          <AlertCircle size={10} strokeWidth={2} />
+          {near_expiry_used[0]}
+          {near_expiry_used.length > 1 ? ` +${near_expiry_used.length - 1}` : ""} 使い切り
+        </span>
+      )}
+    </>
   );
 }
