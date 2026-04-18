@@ -18,7 +18,13 @@ import * as Dialog from "@radix-ui/react-dialog";
 import type { PantryItem } from "@/types/pantry";
 import type { RecipeListItem } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
-import { daysLeft, residualLabel } from "@/lib/utils/pantry-freshness";
+import {
+  daysLeft,
+  residualLabel,
+  effectiveExpiryDate,
+  itemDaysLeft,
+  itemUrgency,
+} from "@/lib/utils/pantry-freshness";
 import UseUpPlanDialog from "./UseUpPlanDialog";
 
 const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: number }> = {
@@ -32,15 +38,15 @@ const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; order: num
   other:      { label: "その他",      emoji: "\ud83d\udce6", order: 7 },
 };
 
-function isExpiringSoon(dateStr: string | null): boolean {
-  if (!dateStr) return false;
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return diff >= 0 && diff < 3 * 86400000;
-}
-
 function isExpired(dateStr: string | null): boolean {
   if (!dateStr) return false;
   return new Date(dateStr).getTime() < Date.now();
+}
+
+/** 推定期限も含めた "期限近い or 切れた" 判定 */
+function itemHasUrgency(item: PantryItem): boolean {
+  const u = itemUrgency(item);
+  return u === "red" || u === "orange";
 }
 
 /**
@@ -99,7 +105,14 @@ export default function PantryList() {
   }, []);
 
   const handleAdd = useCallback(
-    async (item: { name: string; amount?: number; unit?: string; category: string; expiry_date?: string }) => {
+    async (item: {
+      name: string;
+      amount?: number;
+      unit?: string;
+      category: string;
+      expiry_date?: string;
+      purchased_at?: string;
+    }) => {
       const res = await fetch("/api/pantry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,6 +202,13 @@ export default function PantryList() {
         </div>
       </div>
 
+      {/* Freshness dashboard (鮮度サマリー) */}
+      {tab === "week" && weekItems.length > 0 && (
+        <div className="mb-3 px-4">
+          <FreshnessDashboard items={weekItems} />
+        </div>
+      )}
+
       {/* Use-up plan CTA (week タブ & 在庫あり時のみ、大きめ) */}
       {tab === "week" && weekItems.length > 0 && (
         <div className="mb-3 px-4">
@@ -227,7 +247,7 @@ export default function PantryList() {
       )}
 
       {/* Warning */}
-      {items.some((i) => isExpiringSoon(i.expiry_date) || isExpired(i.expiry_date)) && (
+      {items.some(itemHasUrgency) && (
         <div className="mx-4 mb-4 flex items-center gap-2 rounded-[10px] bg-orange/10 px-4 py-3 text-[13px] text-orange">
           <AlertTriangle size={14} strokeWidth={1.5} />
           期限が近い・切れた食材があります
@@ -305,10 +325,10 @@ export default function PantryList() {
                       className="flex min-w-0 flex-1 flex-col text-left active:opacity-60"
                     >
                       <div className="flex items-center gap-1.5">
-                        {(isExpired(item.expiry_date) || isExpiringSoon(item.expiry_date)) && (
+                        {itemHasUrgency(item) && (
                           <AlertTriangle
                             size={12}
-                            className={isExpired(item.expiry_date) ? "text-red" : "text-orange"}
+                            className={itemUrgency(item) === "red" ? "text-red" : "text-orange"}
                             strokeWidth={2}
                           />
                         )}
@@ -327,7 +347,7 @@ export default function PantryList() {
                             {item.unit}
                           </span>
                         )}
-                        {item.expiry_date && (
+                        {item.expiry_date ? (
                           <>
                             <span className={isExpired(item.expiry_date) ? "text-red" : ""}>
                               ~{item.expiry_date.slice(5).replace("-", "/")}
@@ -347,7 +367,22 @@ export default function PantryList() {
                               return <span className={color}>{label}</span>;
                             })()}
                           </>
-                        )}
+                        ) : item.purchased_at ? (() => {
+                          // expiry 未入力だが purchased_at あり → 推定表示
+                          const estimated = effectiveExpiryDate(item);
+                          const d = itemDaysLeft(item);
+                          if (estimated == null || d == null) return null;
+                          const label = residualLabel(estimated);
+                          const color =
+                            d < 0
+                              ? "text-red font-semibold"
+                              : d <= 1
+                              ? "text-red font-semibold"
+                              : d <= 3
+                              ? "text-orange font-semibold"
+                              : "text-label-tertiary";
+                          return <span className={`italic ${color}`}>推定 {label}</span>;
+                        })() : null}
                       </div>
                     </button>
                     <div className="ml-2 flex shrink-0 gap-0.5">
@@ -644,14 +679,23 @@ function WeeklyResetDialog({
 function PantryAddDialog({
   onAdd,
 }: {
-  onAdd: (item: { name: string; amount?: number; unit?: string; category: string; expiry_date?: string }) => void;
+  onAdd: (item: {
+    name: string;
+    amount?: number;
+    unit?: string;
+    category: string;
+    expiry_date?: string;
+    purchased_at?: string;
+  }) => void;
 }) {
+  const today = new Date().toISOString().slice(0, 10);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState("");
   const [category, setCategory] = useState("other");
   const [expiryDate, setExpiryDate] = useState("");
+  const [purchasedAt, setPurchasedAt] = useState(today);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -662,12 +706,14 @@ function PantryAddDialog({
       unit: unit || undefined,
       category,
       expiry_date: expiryDate || undefined,
+      purchased_at: purchasedAt || undefined,
     });
     setName("");
     setAmount("");
     setUnit("");
     setCategory("other");
     setExpiryDate("");
+    setPurchasedAt(today);
     setOpen(false);
   }
 
@@ -737,12 +783,22 @@ function PantryAddDialog({
                 />
               </div>
               <div className="flex min-h-[44px] items-center px-4">
+                <span className="w-20 shrink-0 text-[17px] text-label">購入日</span>
+                <input
+                  type="date"
+                  value={purchasedAt}
+                  onChange={(e) => setPurchasedAt(e.target.value)}
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label-secondary focus:outline-none"
+                />
+              </div>
+              <div className="flex min-h-[44px] items-center px-4">
                 <span className="w-20 shrink-0 text-[17px] text-label">期限</span>
                 <input
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
-                  className="flex-1 bg-transparent py-3 text-[17px] text-label-secondary focus:outline-none"
+                  className="flex-1 bg-transparent py-3 text-[17px] text-label-secondary placeholder:text-label-tertiary focus:outline-none"
+                  placeholder="任意 (未入力なら購入日から推定)"
                 />
               </div>
             </div>
@@ -774,5 +830,106 @@ function PantryAddDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * 鮮度サマリータイル: 🔴/🟠/🟢 の数と期限切れ数を見せる。
+ * expiry_date が無くても purchased_at + category 推定で判定する。
+ */
+function FreshnessDashboard({ items }: { items: PantryItem[] }) {
+  const counts = useMemo(() => {
+    let red = 0;
+    let orange = 0;
+    let green = 0;
+    let expired = 0;
+    let unknown = 0;
+    for (const item of items) {
+      const d = itemDaysLeft(item);
+      if (d == null) {
+        unknown++;
+        continue;
+      }
+      if (d < 0) expired++;
+      else if (d <= 1) red++;
+      else if (d <= 3) orange++;
+      else green++;
+    }
+    return { red, orange, green, expired, unknown };
+  }, [items]);
+
+  const urgent = counts.red + counts.expired;
+  const tone =
+    urgent > 0
+      ? "border-red/40 bg-red/5"
+      : counts.orange > 0
+      ? "border-orange/40 bg-orange/5"
+      : "border-separator bg-bg-secondary";
+
+  return (
+    <div className={`rounded-[12px] border ${tone} px-3 py-2.5`}>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-label-secondary">
+          鮮度サマリー
+        </span>
+        <span className="text-[11px] text-label-tertiary">{items.length}件</span>
+      </div>
+      <div className="flex items-stretch gap-2">
+        <DashboardTile
+          label="今すぐ"
+          emoji="🔴"
+          value={urgent}
+          caption={counts.expired > 0 ? `期限切れ${counts.expired}` : "今日明日"}
+          tone={urgent > 0 ? "red" : "muted"}
+        />
+        <DashboardTile
+          label="今週中"
+          emoji="🟠"
+          value={counts.orange}
+          caption="2-3日"
+          tone={counts.orange > 0 ? "orange" : "muted"}
+        />
+        <DashboardTile
+          label="余裕"
+          emoji="🟢"
+          value={counts.green + counts.unknown}
+          caption={counts.unknown > 0 ? `不明${counts.unknown}` : "4日以上"}
+          tone="muted"
+        />
+      </div>
+    </div>
+  );
+}
+
+function DashboardTile({
+  label,
+  emoji,
+  value,
+  caption,
+  tone,
+}: {
+  label: string;
+  emoji: string;
+  value: number;
+  caption: string;
+  tone: "red" | "orange" | "muted";
+}) {
+  const color =
+    tone === "red"
+      ? "text-red"
+      : tone === "orange"
+      ? "text-orange"
+      : "text-label-secondary";
+  return (
+    <div className="flex flex-1 flex-col items-center rounded-[10px] bg-fill-tertiary/60 px-2 py-2">
+      <div className="flex items-baseline gap-0.5">
+        <span className="text-[11px]">{emoji}</span>
+        <span className={`text-[20px] font-bold leading-none ${color}`}>
+          {value}
+        </span>
+      </div>
+      <span className="mt-0.5 text-[11px] font-medium text-label">{label}</span>
+      <span className="text-[10px] text-label-tertiary">{caption}</span>
+    </div>
   );
 }

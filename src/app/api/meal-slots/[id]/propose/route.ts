@@ -130,7 +130,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     ] = await Promise.all([
       supabase
         .from("pantry_items")
-        .select("name, amount, unit, is_staple, category, expiry_date"),
+        .select("name, amount, unit, is_staple, category, expiry_date, purchased_at"),
       slot.weekly_menu_id
         ? supabase
             .from("meal_slots")
@@ -170,6 +170,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       is_staple: boolean;
       category: string | null;
       expiry_date: string | null;
+      purchased_at: string | null;
     }[];
 
     const recipeMap = new Map(

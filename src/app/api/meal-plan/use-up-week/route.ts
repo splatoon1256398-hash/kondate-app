@@ -63,6 +63,8 @@ export type PantryUsageEntry = {
   amount: number | null;
   unit: string | null;
   expiry_date: string | null;
+  purchased_at: string | null;
+  category: string | null;
   used_in: { date: string; meal_type: "lunch" | "dinner"; title: string }[];
 };
 
@@ -122,6 +124,7 @@ type PantryRow = {
   is_staple: boolean;
   category: string | null;
   expiry_date: string | null;
+  purchased_at: string | null;
 };
 
 type RecipeRow = {
@@ -158,7 +161,7 @@ export async function POST(request: NextRequest) {
     ] = await Promise.all([
       supabase
         .from("pantry_items")
-        .select("name, amount, unit, is_staple, category, expiry_date"),
+        .select("name, amount, unit, is_staple, category, expiry_date, purchased_at"),
       supabase
         .from("meal_slots")
         .select("date, meal_type, recipes(title)")
@@ -382,6 +385,8 @@ ${recipesList || "（DB空）"}
       amount: item.amount,
       unit: item.unit,
       expiry_date: item.expiry_date,
+      purchased_at: item.purchased_at,
+      category: item.category,
       used_in: [],
     }));
     for (const slot of plan) {

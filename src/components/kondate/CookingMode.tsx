@@ -256,7 +256,15 @@ export default function CookingMode({ recipeId }: Props) {
         ) : consumed ? (
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => {
+              // slot 由来の調理なら週カレンダーに戻して「調理済み」反映を見せる。
+              // 単独レシピ調理なら履歴を戻るのが自然。
+              if (slotId) {
+                router.push("/menu");
+              } else {
+                router.back();
+              }
+            }}
             className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-[12px] bg-green text-[17px] font-semibold text-white active:opacity-80"
           >
             <Check size={20} strokeWidth={2.5} />

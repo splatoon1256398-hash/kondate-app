@@ -109,7 +109,7 @@ async function buildSystemPrompt(
   ] = await Promise.all([
     supabase
       .from("pantry_items")
-      .select("name, amount, unit, is_staple, category, expiry_date"),
+      .select("name, amount, unit, is_staple, category, expiry_date, purchased_at"),
     supabase
       .from("meal_slots")
       .select("date, meal_type, recipes(title)")
@@ -142,6 +142,7 @@ async function buildSystemPrompt(
     is_staple: boolean;
     category: string | null;
     expiry_date: string | null;
+    purchased_at: string | null;
   }[];
 
   const pantryText =

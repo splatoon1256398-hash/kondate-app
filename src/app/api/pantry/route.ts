@@ -53,6 +53,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // purchased_at は未指定なら今日を自動セット (rescue用の残日数推定に使う)
+    const today = new Date().toISOString().slice(0, 10);
+
     const { data, error } = await supabase
       .from("pantry_items")
       .insert({
@@ -61,6 +64,7 @@ export async function POST(request: NextRequest) {
         unit: body.unit ?? null,
         category: body.category ?? "other",
         expiry_date: body.expiry_date ?? null,
+        purchased_at: body.purchased_at ?? today,
         source: "manual",
       })
       .select()

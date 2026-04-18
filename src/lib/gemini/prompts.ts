@@ -29,6 +29,8 @@ export type MealPlanContext = {
     unit: string | null;
     is_staple: boolean;
     expiry_date?: string | null;
+    purchased_at?: string | null;
+    category?: string | null;
   }[];
   availableRecipes: {
     id: string;
@@ -178,7 +180,7 @@ export async function buildContext(
       .limit(30),
     supabase
       .from("pantry_items")
-      .select("name, amount, unit, is_staple, expiry_date")
+      .select("name, amount, unit, is_staple, expiry_date, purchased_at, category")
       .order("category"),
     supabase
       .from("recipes")
@@ -222,12 +224,16 @@ export async function buildContext(
         unit: string | null;
         is_staple: boolean;
         expiry_date: string | null;
+        purchased_at: string | null;
+        category: string | null;
       }) => ({
         name: i.name,
         amount: i.amount,
         unit: i.unit,
         is_staple: i.is_staple ?? false,
         expiry_date: i.expiry_date ?? null,
+        purchased_at: i.purchased_at ?? null,
+        category: i.category ?? null,
       })
     ),
     availableRecipes: (allRecipes || []).map(

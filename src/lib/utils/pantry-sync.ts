@@ -43,6 +43,7 @@ export async function syncShoppingToPantry(
         amount: item.amount,
         unit: item.unit,
         category: item.category,
+        purchased_at: new Date().toISOString().slice(0, 10),
         source: "shopping",
       });
     }
