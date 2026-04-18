@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChefHat, CheckCircle2, Loader2, Sun, Moon, Check, Database, Sparkles } from "lucide-react";
-import { shortDate, dayLabel } from "@/lib/utils/date";
+import { dayLabel, parseDate } from "@/lib/utils/date";
 import type { ApiResponse } from "@/types/common";
 import type { MealPlanSlotProposal } from "@/types/meal-plan";
 
@@ -61,58 +61,95 @@ export default function MealPlanProposalCard({ slots, confirmed, confirming, onC
 
   return (
     <div className="space-y-3">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-blue">献立提案</div>
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-blue">
+        <Sparkles size={11} strokeWidth={2.5} />
+        献立提案（{sorted.length}日分）
+      </div>
 
-      <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-secondary">
-        {sorted.map(([date, daySlots]) => (
-          <div key={date} className="px-3 py-2.5">
-            <div className="mb-1.5 text-[12px] font-semibold text-label-secondary">
-              {dayLabel(date)}曜日 · {shortDate(date)}
-            </div>
-            <div className="space-y-1">
-              {daySlots
-                .sort((a, b) => (a.meal_type === "lunch" ? -1 : 1) - (b.meal_type === "lunch" ? -1 : 1))
-                .map((slot, i) => {
-                  const isLunch = slot.meal_type === "lunch";
-                  const Icon = isLunch ? Sun : Moon;
+      <div className="space-y-2">
+        {sorted.map(([date, daySlots]) => {
+          const d = parseDate(date);
+          const dow = dayLabel(date);
+          const isWeekend = dow === "土" || dow === "日";
+          return (
+            <div
+              key={date}
+              className="overflow-hidden rounded-[12px] bg-bg-secondary"
+            >
+              {/* 日付ヘッダ: 曜日と日付を大きく */}
+              <div
+                className={`flex items-baseline gap-2 px-3 py-2 ${
+                  isWeekend ? "bg-blue/10" : "bg-fill-tertiary"
+                }`}
+              >
+                <span
+                  className={`text-[17px] font-bold leading-none ${
+                    dow === "日" ? "text-red" : dow === "土" ? "text-blue" : "text-label"
+                  }`}
+                >
+                  {dow}
+                </span>
+                <span className="text-[15px] font-semibold leading-none text-label">
+                  {d.getMonth() + 1}/{d.getDate()}
+                </span>
+              </div>
 
-                  // Resolve display info: recipe_id → fetched, else recipe
-                  const dbRecipe = slot.recipe_id ? recipeMap.get(slot.recipe_id) : undefined;
-                  const display = dbRecipe
-                    ? { title: dbRecipe.title, cook_method: dbRecipe.cook_method, source: "db" as const }
-                    : slot.recipe
-                      ? { title: slot.recipe.title, cook_method: slot.recipe.cook_method, source: "new" as const }
-                      : null;
+              {/* スロット */}
+              <div className="cell-separator">
+                {daySlots
+                  .sort((a, b) => (a.meal_type === "lunch" ? -1 : 1) - (b.meal_type === "lunch" ? -1 : 1))
+                  .map((slot, i) => {
+                    const isLunch = slot.meal_type === "lunch";
+                    const Icon = isLunch ? Sun : Moon;
 
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <Icon size={14} className={isLunch ? "text-orange" : "text-indigo"} strokeWidth={1.5} />
-                      {slot.is_skipped ? (
-                        <span className="flex-1 text-[14px] text-label-tertiary line-through">
-                          {slot.memo || "スキップ"}
+                    const dbRecipe = slot.recipe_id ? recipeMap.get(slot.recipe_id) : undefined;
+                    const display = dbRecipe
+                      ? { title: dbRecipe.title, cook_method: dbRecipe.cook_method, source: "db" as const }
+                      : slot.recipe
+                        ? { title: slot.recipe.title, cook_method: slot.recipe.cook_method, source: "new" as const }
+                        : null;
+
+                    return (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2">
+                        <div className="flex w-10 shrink-0 items-center gap-1">
+                          <Icon
+                            size={13}
+                            className={isLunch ? "text-orange" : "text-indigo"}
+                            strokeWidth={2}
+                          />
+                          <span className="text-[11px] font-semibold text-label-secondary">
+                            {isLunch ? "昼" : "夜"}
+                          </span>
+                        </div>
+                        {slot.is_skipped ? (
+                          <span className="flex-1 text-[14px] text-label-tertiary line-through">
+                            {slot.memo || "スキップ"}
+                          </span>
+                        ) : display ? (
+                          <span className="flex flex-1 items-center gap-1 truncate text-[14px] text-label">
+                            <span className="truncate">{display.title}</span>
+                            {display.cook_method === "hotcook" && (
+                              <ChefHat size={11} className="shrink-0 text-blue" strokeWidth={1.5} />
+                            )}
+                            {display.source === "db" ? (
+                              <Database size={9} className="shrink-0 text-green" strokeWidth={2} />
+                            ) : (
+                              <Sparkles size={9} className="shrink-0 text-purple" strokeWidth={2} />
+                            )}
+                          </span>
+                        ) : (
+                          <span className="flex-1 text-[14px] text-label-tertiary">未設定</span>
+                        )}
+                        <span className="shrink-0 text-[11px] text-label-tertiary">
+                          {slot.servings}人
                         </span>
-                      ) : display ? (
-                        <span className="flex flex-1 items-center gap-1 truncate text-[14px] text-label">
-                          {display.title}
-                          {display.cook_method === "hotcook" && (
-                            <ChefHat size={11} className="text-blue" strokeWidth={1.5} />
-                          )}
-                          {display.source === "db" ? (
-                            <Database size={9} className="text-green" strokeWidth={2} />
-                          ) : (
-                            <Sparkles size={9} className="text-purple" strokeWidth={2} />
-                          )}
-                        </span>
-                      ) : (
-                        <span className="flex-1 text-[14px] text-label-tertiary">未設定</span>
-                      )}
-                      <span className="text-[11px] text-label-tertiary">{slot.servings}人</span>
-                    </div>
-                  );
-                })}
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="flex items-center gap-3 text-[11px] text-label-tertiary">

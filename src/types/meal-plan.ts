@@ -43,6 +43,8 @@ export type MealPlanProposal = {
 export type SaveWeeklyMenuResult = {
   weekly_menu_id: string;
   saved_slots: number;
+  shopping_list_id?: string | null;
+  shopping_items_count?: number;
 };
 
 export type GenerateShoppingListResult = {

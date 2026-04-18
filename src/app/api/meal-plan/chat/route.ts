@@ -144,7 +144,9 @@ export async function POST(request: NextRequest) {
 
           let pendingFcContents = [...contents];
           let parts = candidate.content.parts;
-          let maxRounds = 5;
+          // save_weekly_menu が内部で generate_shopping_list を自動実行するので
+          // 通常 2 ラウンドで完結する。3 ラウンドあれば十分なマージン。
+          let maxRounds = 3;
 
           while (maxRounds-- > 0 && !aborted) {
             let hasFunctionCall = false;
@@ -178,6 +180,7 @@ export async function POST(request: NextRequest) {
                 const functionName: FunctionCallName = name;
 
                 let result: unknown;
+                let autoShoppingResult: { shopping_list_id: string; items_count: number } | null = null;
                 try {
                   switch (functionName) {
                     case "propose_weekly_menu":
@@ -188,7 +191,21 @@ export async function POST(request: NextRequest) {
                       if (!validation.success) {
                         result = { error: validation.error };
                       } else {
-                        result = await executeSaveWeeklyMenu(supabase, validation.data);
+                        const saveResult = await executeSaveWeeklyMenu(supabase, validation.data);
+                        // Auto-generate shopping list so Gemini doesn't need a second FC round
+                        // (reduces timeout risk and guarantees the shopping list is always created).
+                        try {
+                          autoShoppingResult = await executeGenerateShoppingList(supabase, {
+                            weekly_menu_id: saveResult.weekly_menu_id,
+                          });
+                        } catch (e) {
+                          console.error("[FC:save_weekly_menu] auto shopping list failed:", e);
+                        }
+                        result = {
+                          ...saveResult,
+                          shopping_list_id: autoShoppingResult?.shopping_list_id ?? null,
+                          shopping_items_count: autoShoppingResult?.items_count ?? 0,
+                        };
                       }
                       break;
                     }
@@ -207,6 +224,12 @@ export async function POST(request: NextRequest) {
                 }
 
                 sendFunctionCall(functionName, result as FunctionCallResult);
+
+                // Emit the synthesized generate_shopping_list event so the UI can show
+                // the "買い物リストを見る" link without waiting for Gemini to call the FC.
+                if (autoShoppingResult) {
+                  sendFunctionCall("generate_shopping_list", autoShoppingResult);
+                }
 
                 fcResponseParts.push({
                   functionResponse: {

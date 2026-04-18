@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Send, Sparkles, Loader2, ShoppingCart, ArrowLeft, ChevronLeft } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Send, Sparkles, Loader2, ShoppingCart, ArrowLeft, ChevronLeft, RotateCw, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import type {
   ChatMessage,
@@ -21,6 +21,7 @@ type DisplayMessage = {
   proposal?: MealPlanProposal | null;
   savedMenuId?: string | null;
   shoppingListCreated?: boolean;
+  error?: boolean;
 };
 
 type Props = {
@@ -84,11 +85,13 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, content: "エラーが発生しました。もう一度お試しください。" }
+                ? { ...m, content: "通信エラーが発生しました。", error: true }
                 : m
             )
           );
           setStreaming(false);
+          // Rewind history so retry replays the same user turn
+          chatHistoryRef.current = chatHistoryRef.current.slice(0, -1);
           return;
         }
 
@@ -146,6 +149,11 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
                             ...m,
                             savedMenuId:
                               "weekly_menu_id" in result ? result.weekly_menu_id : null,
+                            // chat route auto-generates shopping list inside save_weekly_menu FC
+                            shoppingListCreated:
+                              "shopping_list_id" in result && !!result.shopping_list_id
+                                ? true
+                                : m.shoppingListCreated,
                           }
                         : m
                     )
@@ -185,10 +193,16 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: m.content || "通信エラーが発生しました。" }
+              ? {
+                  ...m,
+                  content: m.content || "通信エラーが発生しました。",
+                  error: !m.proposal, // proposal が届いていれば復帰できるのでエラー扱いしない
+                }
               : m
           )
         );
+        // Rewind history so retry replays the same user turn
+        chatHistoryRef.current = chatHistoryRef.current.slice(0, -1);
       } finally {
         setStreaming(false);
         scrollToBottom();
@@ -196,6 +210,17 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
     },
     [weekStartDate, scrollToBottom]
   );
+
+  const retryLast = useCallback(() => {
+    if (streaming) return;
+    const withoutError = messages.filter((m) => !(m.role === "assistant" && m.error));
+    const lastUser = [...withoutError].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    // Drop the last user too — sendToApi re-appends it
+    const idx = withoutError.findIndex((m) => m.id === lastUser.id);
+    setMessages(idx >= 0 ? withoutError.slice(0, idx) : withoutError);
+    sendToApi(lastUser.content);
+  }, [streaming, messages, sendToApi]);
 
   // Confirm proposal directly (bypass Gemini — call save API)
   const confirmProposal = useCallback(
@@ -274,6 +299,21 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
     [input, streaming, sendToApi]
   );
 
+  // Latest unconfirmed proposal — sticky 確定バーの対象
+  const pendingProposal = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.proposal && !m.savedMenuId) return { msgId: m.id, proposal: m.proposal };
+    }
+    return null;
+  }, [messages]);
+
+  // Link to shopping list after confirm — show once
+  const shoppingReady = useMemo(
+    () => messages.some((m) => m.shoppingListCreated),
+    [messages]
+  );
+
   // Initial "start chat" state
   if (!started) {
     return (
@@ -332,17 +372,19 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
               {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
 
               {msg.proposal && (
-                <MealPlanProposalCard
-                  weekStartDate={msg.proposal.week_start_date}
-                  slots={msg.proposal.slots}
-                  confirmed={!!msg.savedMenuId}
-                  confirming={confirming}
-                  onConfirm={
-                    !msg.savedMenuId && !streaming && !confirming
-                      ? () => confirmProposal(msg.proposal!, msg.id)
-                      : undefined
-                  }
-                />
+                <div className="mt-2">
+                  <MealPlanProposalCard
+                    weekStartDate={msg.proposal.week_start_date}
+                    slots={msg.proposal.slots}
+                    confirmed={!!msg.savedMenuId}
+                    confirming={confirming}
+                    onConfirm={
+                      !msg.savedMenuId && !streaming && !confirming
+                        ? () => confirmProposal(msg.proposal!, msg.id)
+                        : undefined
+                    }
+                  />
+                </div>
               )}
 
               {msg.savedMenuId && (
@@ -360,6 +402,18 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
                   買い物リストを見る
                 </Link>
               )}
+
+              {msg.error && (
+                <button
+                  type="button"
+                  onClick={retryLast}
+                  disabled={streaming}
+                  className="mt-2 flex items-center gap-1.5 rounded-[10px] bg-blue/10 px-3 py-2 text-[13px] font-medium text-blue active:bg-blue/20 disabled:opacity-50"
+                >
+                  <RotateCw size={13} strokeWidth={2} />
+                  もう一度試す
+                </button>
+              )}
             </AiChatBubble>
           </div>
         ))}
@@ -371,6 +425,43 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
           </div>
         )}
       </div>
+
+      {/* Sticky 確定バー: 未確定の提案がある時だけ表示 */}
+      {pendingProposal && (
+        <div className="material-bar separator-top px-4 py-2.5">
+          <button
+            type="button"
+            onClick={() => confirmProposal(pendingProposal.proposal, pendingProposal.msgId)}
+            disabled={streaming || confirming}
+            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-blue text-[15px] font-semibold text-white active:opacity-80 disabled:opacity-50"
+          >
+            {confirming ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                保存中...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={15} strokeWidth={2} />
+                この献立で確定する
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* 確定済み + 買い物リスト生成済みの時は目立つ CTA */}
+      {!pendingProposal && shoppingReady && (
+        <div className="material-bar separator-top px-4 py-2.5">
+          <Link
+            href="/shopping"
+            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[12px] bg-blue text-[15px] font-semibold text-white active:opacity-80"
+          >
+            <ShoppingCart size={15} strokeWidth={2} />
+            買い物リストを見る
+          </Link>
+        </div>
+      )}
 
       {/* Input bar */}
       <form onSubmit={handleSubmit} className="material-bar separator-top px-4 py-2 pb-3">
