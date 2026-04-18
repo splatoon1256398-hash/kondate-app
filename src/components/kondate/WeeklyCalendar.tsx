@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Sparkles, ShoppingCart, Loader2, Check } from "lucide-react";
 import Link from "next/link";
 import {
   getMonday,
@@ -20,6 +20,9 @@ export default function WeeklyCalendar() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [menu, setMenu] = useState<WeeklyMenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [justGenerated, setJustGenerated] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchMenu = useCallback(async (date: string) => {
     setLoading(true);
@@ -37,6 +40,34 @@ export default function WeeklyCalendar() {
   useEffect(() => {
     fetchMenu(weekStart);
   }, [weekStart, fetchMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
+  }, []);
+
+  const generateShoppingList = useCallback(async () => {
+    if (!menu || generating) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/weekly-menus/${menu.id}/shopping-list`, {
+        method: "POST",
+      });
+      const json: ApiResponse<{ shopping_list_id: string; items_count: number }> = await res.json();
+      if (json.data) {
+        setJustGenerated(true);
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setJustGenerated(false), 2500);
+      } else {
+        alert(`買い物リストの生成に失敗しました: ${json.error ?? "不明なエラー"}`);
+      }
+    } catch (e) {
+      alert(`通信エラー: ${e instanceof Error ? e.message : "failed"}`);
+    } finally {
+      setGenerating(false);
+    }
+  }, [menu, generating]);
 
   const days = getWeekDays(weekStart);
   const today = formatDate(new Date());
@@ -91,6 +122,41 @@ export default function WeeklyCalendar() {
             </span>
           )}
         </p>
+        {menu && menu.status === "confirmed" && (
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={generateShoppingList}
+              disabled={generating}
+              className="flex h-8 items-center gap-1.5 rounded-full bg-blue/10 px-3 text-[13px] font-medium text-blue active:bg-blue/20 disabled:opacity-50"
+            >
+              {generating ? (
+                <>
+                  <Loader2 size={12} className="animate-spin" strokeWidth={2.5} />
+                  生成中...
+                </>
+              ) : justGenerated ? (
+                <>
+                  <Check size={12} strokeWidth={2.5} />
+                  生成しました
+                </>
+              ) : (
+                <>
+                  <ShoppingCart size={12} strokeWidth={2.5} />
+                  買い物リストを生成
+                </>
+              )}
+            </button>
+            {justGenerated && (
+              <Link
+                href="/shopping"
+                className="text-[13px] font-medium text-blue active:opacity-60"
+              >
+                見に行く →
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Body */}
