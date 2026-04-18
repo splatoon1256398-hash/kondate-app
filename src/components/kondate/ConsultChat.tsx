@@ -228,26 +228,32 @@ export default function ConsultChat() {
       if (applying) return;
       setApplying(true);
       try {
-        // 1. 対象スロットを取得
-        const res = await fetch(
-          `/api/meal-slots/by-date?date=${targetDateIso}&meal_type=${targetMealType}`
-        );
-        const json: ApiResponse<{ id: string } | null> = await res.json();
+        // 1. 対象スロットを取得 (無ければ週ごと自動作成)
+        const ensureRes = await fetch("/api/meal-slots/ensure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: targetDateIso,
+            meal_type: targetMealType,
+          }),
+        });
+        const ensureJson: ApiResponse<{ id: string } | null> =
+          await ensureRes.json();
 
-        if (json.error || !json.data) {
+        if (ensureJson.error || !ensureJson.data) {
           setMessages((prev) => [
             ...prev,
             {
               id: crypto.randomUUID(),
               role: "assistant",
-              content: `${targetDate === "today" ? "今日" : "明日"}の${targetMealType === "lunch" ? "昼" : "夜"}の献立枠がまだありません。先にAI提案タブから今週の献立を作ってください。`,
+              content: `枠の作成に失敗しました: ${ensureJson.error ?? "不明なエラー"}`,
             },
           ]);
           return;
         }
 
-        // 2. PATCH
-        const patchRes = await fetch(`/api/meal-slots/${json.data.id}`, {
+        // 2. PATCH (レシピ反映)
+        const patchRes = await fetch(`/api/meal-slots/${ensureJson.data.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ recipe_id: candidate.recipe_id }),
@@ -286,7 +292,7 @@ export default function ConsultChat() {
         scrollToBottom();
       }
     },
-    [applying, targetDateIso, targetMealType, targetDate, scrollToBottom]
+    [applying, targetDateIso, targetMealType, scrollToBottom]
   );
 
   // 最初にフォーカスを下にもっていく用

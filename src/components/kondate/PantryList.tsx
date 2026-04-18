@@ -539,11 +539,13 @@ function WeeklyResetDialog({
   onDelete: (ids: string[]) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  // Dialog を開くたびに選択をリセット
-  useEffect(() => {
+  // 直前の open 値を保持し、false→true トランジション時だけリセットする。
+  // (useEffect + setState は react-hooks/set-state-in-effect を避けるためレンダ中に判定)
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) setSelected(new Set());
-  }, [open]);
+  }
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -615,7 +617,7 @@ function WeeklyResetDialog({
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left active:bg-fill-tertiary"
                   >
                     <span
-                      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[2px] ${
                         checked ? "border-red bg-red text-white" : "border-gray3"
                       }`}
                     >

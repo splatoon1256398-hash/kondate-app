@@ -61,16 +61,15 @@ export default function UseUpPlanDialog({ open, onOpenChange, onApplied }: Props
   }, []);
 
   useEffect(() => {
-    if (open && !plan && !loading) {
+    if (open) {
       generate();
-    }
-    if (!open) {
-      // 閉じる時は一度だけリセット
+    } else {
       setPlan(null);
       setError(null);
       setApplied(false);
     }
-  }, [open, plan, loading, generate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const apply = useCallback(async () => {
     if (!plan || applying) return;
@@ -126,7 +125,7 @@ export default function UseUpPlanDialog({ open, onOpenChange, onApplied }: Props
               type="button"
               onClick={generate}
               disabled={loading || applying}
-              className="text-[13px] font-medium text-purple active:opacity-60 disabled:opacity-30"
+              className="text-[13px] font-medium text-blue active:opacity-60 disabled:opacity-30"
             >
               再生成
             </button>
@@ -160,7 +159,7 @@ export default function UseUpPlanDialog({ open, onOpenChange, onApplied }: Props
                     type="button"
                     onClick={apply}
                     disabled={applying}
-                    className="flex w-full items-center justify-center gap-2 rounded-[12px] bg-purple py-3 text-[15px] font-semibold text-white active:opacity-80 disabled:opacity-40"
+                    className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-purple py-3 text-[15px] font-semibold text-white active:opacity-80 disabled:opacity-40"
                   >
                     {applying ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -235,7 +234,7 @@ function PlanBody({
       map.set(s.date, arr);
     }
     return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
-  }, [plan.plan]);
+  }, [plan]);
 
   const usedItems = plan.pantry_usage.filter((u) => u.used_in.length > 0);
   const unusedItems = plan.pantry_usage.filter((u) => u.used_in.length === 0);
@@ -460,8 +459,8 @@ function SlotRow({
         )}
         <div className="mt-1 flex flex-wrap items-center gap-1">
           {slot.is_favorite ? (
-            <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-1.5 py-0.5 text-[10px] font-semibold text-red">
-              <Heart size={9} className="fill-red" strokeWidth={2} />
+            <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-2 py-0.5 text-[11px] font-semibold text-red">
+              <Heart size={10} className="fill-red" strokeWidth={2} />
               殿堂入り
               {slot.rating?.avg != null && (
                 <span className="ml-0.5">★{slot.rating.avg.toFixed(1)}</span>
@@ -469,27 +468,27 @@ function SlotRow({
             </span>
           ) : slot.rating?.avg != null && slot.rating.count > 0 ? (
             <span
-              className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+              className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                 slot.rating.avg >= 4
                   ? "bg-yellow/15 text-orange"
                   : "bg-fill text-label-secondary"
               }`}
             >
-              <Star size={9} strokeWidth={2} />
+              <Star size={10} strokeWidth={2} />
               {slot.rating.avg.toFixed(1)}
             </span>
           ) : null}
           {inv && inv.total > 0 && (
             <>
               <span
-                className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}
+                className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`}
               >
-                <Leaf size={9} strokeWidth={2} />
+                <Leaf size={10} strokeWidth={2} />
                 {inv.matched}/{inv.total}
               </span>
               {inv.near_expiry_used.length > 0 && (
-                <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-1.5 py-0.5 text-[10px] font-semibold text-red">
-                  <AlertCircle size={9} strokeWidth={2} />
+                <span className="flex items-center gap-0.5 rounded-full bg-red/15 px-2 py-0.5 text-[11px] font-semibold text-red">
+                  <AlertCircle size={10} strokeWidth={2} />
                   {inv.near_expiry_used[0]}
                   {inv.near_expiry_used.length > 1
                     ? ` +${inv.near_expiry_used.length - 1}`

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { X, ChevronLeft, ChevronRight, ChefHat, Lightbulb, Check, ListOrdered } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
 import { cleanSteps } from "@/lib/utils/recipe-step-filter";
@@ -13,6 +13,8 @@ type Props = {
 
 export default function CookingMode({ recipeId }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const slotId = searchParams.get("slot_id");
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(-1);
@@ -267,7 +269,10 @@ export default function CookingMode({ recipeId }: Props) {
               await fetch(`/api/recipes/${recipeId}/cooked`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ servings: recipe.servings_base }),
+                body: JSON.stringify({
+                  servings: recipe.servings_base,
+                  slot_id: slotId || undefined,
+                }),
               });
               setConsumed(true);
             }}

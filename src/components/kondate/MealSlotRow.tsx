@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   Sun,
   Moon,
-  ChevronRight,
   BookOpen,
   Replace,
   Search,
@@ -66,7 +65,10 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
       });
       onUpdate?.();
     } catch {
-      /* ignore */
+      // best-effort: 失敗はサーバーレンダ次回 fetch で巻き戻るので silent
+      if (typeof window !== "undefined") {
+        console.warn("[MealSlotRow] action failed");
+      }
     } finally {
       setActing(false);
       setMenuOpen(false);
@@ -84,7 +86,10 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
       });
       onUpdate?.();
     } catch {
-      /* ignore */
+      // best-effort: 失敗はサーバーレンダ次回 fetch で巻き戻るので silent
+      if (typeof window !== "undefined") {
+        console.warn("[MealSlotRow] action failed");
+      }
     } finally {
       setActing(false);
       setMenuOpen(false);
@@ -102,7 +107,10 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
       });
       onUpdate?.();
     } catch {
-      /* ignore */
+      // best-effort: 失敗はサーバーレンダ次回 fetch で巻き戻るので silent
+      if (typeof window !== "undefined") {
+        console.warn("[MealSlotRow] action failed");
+      }
     } finally {
       setActing(false);
       setMenuOpen(false);
@@ -185,7 +193,7 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
             <MealIcon size={18} className={`shrink-0 ${mealColor}`} strokeWidth={1.5} />
             {slot.recipe_id ? (
               <Link
-                href={`/menu/${slot.recipe_id}?servings=${slot.servings}`}
+                href={`/menu/${slot.recipe_id}?servings=${slot.servings}&slot_id=${slot.id}`}
                 className="min-w-0 flex-1 truncate text-[17px] text-label active:text-blue"
               >
                 {slot.recipe_title}
@@ -210,7 +218,7 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
           <div className="flex gap-2 px-4 pb-3 pt-1">
             {slot.recipe_id && (
               <Link
-                href={`/menu/${slot.recipe_id}?servings=${slot.servings}`}
+                href={`/menu/${slot.recipe_id}?servings=${slot.servings}&slot_id=${slot.id}`}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-fill px-3 py-2 text-[15px] font-medium text-blue active:bg-fill-secondary"
               >
                 <BookOpen size={14} strokeWidth={2} />
@@ -258,7 +266,7 @@ export default function MealSlotRow({ slot, mealType, isToday, onUpdate }: Props
         <MealIcon size={18} className={`shrink-0 ${mealColor}`} strokeWidth={1.5} />
         {slot.recipe_id ? (
           <Link
-            href={`/menu/${slot.recipe_id}?servings=${slot.servings}`}
+            href={`/menu/${slot.recipe_id}?servings=${slot.servings}&slot_id=${slot.id}`}
             className="min-w-0 flex-1 truncate text-[17px] text-label active:text-blue"
           >
             {slot.recipe_title}
@@ -598,7 +606,7 @@ function MealSlotActionSheet({
             <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
               {slot.recipe_id && (
                 <Link
-                  href={`/menu/${slot.recipe_id}?servings=${slot.servings}`}
+                  href={`/menu/${slot.recipe_id}?servings=${slot.servings}&slot_id=${slot.id}`}
                   onClick={() => onOpenChange(false)}
                   className="flex h-12 items-center gap-3 rounded-[10px] bg-bg-grouped-secondary px-4 text-[17px] font-medium text-blue active:bg-fill"
                 >

@@ -31,7 +31,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
     // 2. meal_slots の recipe_id 経由で全 recipe_ingredients を取得
     const { data: slots, error: slotsError } = await supabase
       .from("meal_slots")
-      .select("servings, recipes ( servings_base, recipe_ingredients (*) )")
+      .select("servings, recipes ( title, servings_base, recipe_ingredients (*) )")
       .eq("weekly_menu_id", id)
       .eq("is_skipped", false)
       .not("recipe_id", "is", null);
@@ -72,6 +72,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
             unit: item.unit,
             category: item.category,
             is_checked: false,
+            recipe_titles: item.recipeTitles,
           }))
         );
 

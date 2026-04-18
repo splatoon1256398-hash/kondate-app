@@ -93,7 +93,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     let freeText = "";
     try {
       const body = await request.json();
-      if (typeof body?.free_text === "string") freeText = body.free_text.slice(0, 200);
+      if (typeof body?.free_text === "string") {
+        // 200文字 truncate + プロンプトインジェクション対策
+        // 改行/見出し文字/バッククォートを全角or空白に置換してロール混同を防ぐ
+        freeText = body.free_text
+          .slice(0, 200)
+          .replace(/[`\r\n]+/g, " ")
+          .replace(/^#+\s*/gm, "")
+          .trim();
+      }
     } catch {
       // body なしでもOK
     }

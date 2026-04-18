@@ -43,6 +43,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (body.memo !== undefined) updates.memo = body.memo;
     if (body.is_skipped !== undefined) updates.is_skipped = body.is_skipped;
 
+    // 2.5 skip トグル / レシピ差し替え で cooked_at を巻き戻す
+    //    - is_skipped を切り替えたら「まだ調理していない」状態に
+    //    - 別レシピに差し替えたら元レシピの cooked_at は意味をなさない
+    //    (pantry 減算は巻き戻さない。手動調整してください)
+    const isSkipToggled =
+      body.is_skipped !== undefined && body.is_skipped !== current.is_skipped;
+    const isRecipeSwapped =
+      body.recipe_id !== undefined && body.recipe_id !== current.recipe_id;
+    if ((isSkipToggled || isRecipeSwapped) && current.cooked_at != null) {
+      updates.cooked_at = null;
+      if (body.memo === undefined && current.is_skipped === false) {
+        updates.memo = null;
+      }
+    }
+
     // 3. 調理完了マーク: pantry 減算 + cooked_at 記録（冪等）
     if (body.cooked === true) {
       if (current.cooked_at == null && current.recipe_id) {

@@ -11,9 +11,10 @@ import { cleanSteps } from "@/lib/utils/recipe-step-filter";
 type Props = {
   recipeId: string;
   servings?: number;
+  slotId?: string;
 };
 
-export default function RecipeDetail({ recipeId, servings }: Props) {
+export default function RecipeDetail({ recipeId, servings, slotId }: Props) {
   const router = useRouter();
   const [recipe, setRecipe] = useState<RecipeDetailType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,7 +157,7 @@ export default function RecipeDetail({ recipeId, servings }: Props) {
           </h2>
           {recipe.steps.length > 0 && (
             <Link
-              href={`/cooking/${recipeId}`}
+              href={`/cooking/${recipeId}${slotId ? `?slot_id=${slotId}` : ""}`}
               className="flex items-center gap-1 rounded-full bg-blue px-3 py-1.5 text-[13px] font-semibold text-white active:opacity-80"
             >
               <Play size={12} strokeWidth={2} />
