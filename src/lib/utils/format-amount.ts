@@ -32,20 +32,41 @@ const FRACTION_MAP: Record<string, string> = {
   "0.75": "¾",
 };
 
+const FRACTION_THRESHOLDS: { value: number; glyph: string }[] = [
+  { value: 0.25, glyph: "¼" },
+  { value: 1 / 3, glyph: "⅓" },
+  { value: 0.5, glyph: "½" },
+  { value: 2 / 3, glyph: "⅔" },
+  { value: 0.75, glyph: "¾" },
+];
+
+function nearestFractionGlyph(frac: number): string | null {
+  let best: { glyph: string; dist: number } | null = null;
+  for (const { value, glyph } of FRACTION_THRESHOLDS) {
+    const dist = Math.abs(frac - value);
+    if (!best || dist < best.dist) best = { glyph, dist };
+  }
+  return best && best.dist <= 0.12 ? best.glyph : null;
+}
+
 function formatNumber(n: number): string {
   if (n === 0) return "0";
   const whole = Math.floor(n);
   const frac = n - whole;
-  if (frac === 0) return String(whole);
+  if (frac < 0.02) return String(whole);
+  if (frac > 0.98) return String(whole + 1);
 
-  // Round to 3 decimals for fraction lookup
   const key = frac.toFixed(frac < 0.35 ? 3 : 2).replace(/0+$/, "").replace(/\.$/, "");
-  const glyph = FRACTION_MAP[key] ?? FRACTION_MAP[frac.toFixed(2)];
-  if (glyph) {
-    return whole === 0 ? glyph : `${whole}${glyph}`;
+  const exact = FRACTION_MAP[key] ?? FRACTION_MAP[frac.toFixed(2)];
+  if (exact) {
+    return whole === 0 ? exact : `${whole}${exact}`;
   }
-  // Fallback: 2 decimals, strip trailing zeros
-  return n.toFixed(2).replace(/\.?0+$/, "");
+  // 端数が分数テーブルにない場合は最寄りの分数に寄せる
+  const nearest = nearestFractionGlyph(frac);
+  if (nearest) {
+    return whole === 0 ? nearest : `${whole}${nearest}`;
+  }
+  return n.toFixed(1).replace(/\.0$/, "");
 }
 
 /** "個(450g)" → { main: "個", grams: 450 } / "個" → { main: "個" } */

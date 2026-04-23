@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { RecipeDetail as RecipeDetailType } from "@/types/recipe";
 import type { ApiResponse } from "@/types/common";
 import { cleanSteps } from "@/lib/utils/recipe-step-filter";
+import { formatShoppingAmount } from "@/lib/utils/format-amount";
 
 type Props = {
   recipeId: string;
@@ -138,14 +139,20 @@ export default function RecipeDetail({ recipeId, servings, slotId }: Props) {
           材料
         </h2>
         <div className="cell-separator overflow-hidden rounded-[10px] bg-bg-grouped-secondary">
-          {recipe.ingredients.map((ing) => (
-            <div key={ing.id} className="flex min-h-[44px] items-center justify-between px-4 py-2.5">
-              <span className="text-[17px] text-label">{ing.name}</span>
-              <span className="text-[15px] text-label-secondary">
-                {ing.amount} {ing.unit}
-              </span>
-            </div>
-          ))}
+          {recipe.ingredients.map((ing) => {
+            const formatted = formatShoppingAmount(ing.amount, ing.unit);
+            return (
+              <div key={ing.id} className="flex min-h-[44px] items-center justify-between px-4 py-2.5">
+                <span className="text-[17px] text-label">{ing.name}</span>
+                <div className="text-right">
+                  <div className="text-[15px] text-label-secondary">{formatted.primary}</div>
+                  {formatted.secondary && (
+                    <div className="text-[12px] text-label-tertiary">{formatted.secondary}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

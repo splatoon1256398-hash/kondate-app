@@ -42,8 +42,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     // servings指定がある場合は分量を計算
-    const servings = servingsParam ? parseInt(servingsParam, 10) : data.servings_base;
-    const ratio = servings / data.servings_base;
+    const parsed = servingsParam ? parseInt(servingsParam, 10) : NaN;
+    const servings = Number.isFinite(parsed) && parsed > 0 ? parsed : data.servings_base;
+    const ratio = data.servings_base > 0 ? servings / data.servings_base : 1;
 
     const response: RecipeDetail = {
       id: data.id,
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         .map((i: { id: string; name: string; amount: number; unit: string; sort_order: number }) => ({
           id: i.id,
           name: i.name,
-          amount: Math.round(i.amount * ratio * 10) / 10,
+          amount: i.amount * ratio,
           unit: i.unit,
           sort_order: i.sort_order,
         })),
