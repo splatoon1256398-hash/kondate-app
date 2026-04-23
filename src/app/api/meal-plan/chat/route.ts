@@ -58,7 +58,11 @@ export async function POST(request: NextRequest) {
     const gemini = getGeminiClient();
 
     // Build context
-    const mealPlanContext = await buildContext(supabase, reqContext?.week_start_date);
+    const mealPlanContext = await buildContext(
+      supabase,
+      reqContext?.week_start_date,
+      reqContext?.hotcook_model
+    );
     const systemPrompt = buildSystemPrompt(mealPlanContext);
 
     // Stream state — single source of truth

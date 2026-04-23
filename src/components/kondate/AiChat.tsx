@@ -13,6 +13,7 @@ import type {
 import type { ApiResponse } from "@/types/common";
 import AiChatBubble from "./AiChatBubble";
 import MealPlanProposalCard from "./MealPlanProposalCard";
+import { useHotcookModelPreference } from "@/lib/preferences/hotcook-model";
 
 type DisplayMessage = {
   id: string;
@@ -31,6 +32,7 @@ type Props = {
 };
 
 export default function AiChat({ initialMessage, weekStartDate, onBack }: Props) {
+  const [hotcookModel] = useHotcookModelPreference();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -76,7 +78,10 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: chatHistoryRef.current,
-            context: { week_start_date: weekStartDate },
+            context: {
+              week_start_date: weekStartDate,
+              hotcook_model: hotcookModel,
+            },
           }),
           signal: AbortSignal.timeout(120_000),
         });
@@ -208,7 +213,7 @@ export default function AiChat({ initialMessage, weekStartDate, onBack }: Props)
         scrollToBottom();
       }
     },
-    [weekStartDate, scrollToBottom]
+    [weekStartDate, scrollToBottom, hotcookModel]
   );
 
   const retryLast = useCallback(() => {

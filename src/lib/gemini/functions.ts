@@ -59,9 +59,13 @@ const slotSchema = {
     memo: { type: T.STRING },
     recipe_id: {
       type: T.STRING,
-      description: "既存DBレシピのID（UUID）。これが指定されている場合、recipeフィールドは省略すること。DBに合うレシピがある場合は必ずこちらを使う。",
+      description: "既存DBレシピのID（UUID）。変更せずそのまま流用するときだけ指定する。オリジナル生成する場合は空で、recipe フィールドを返すこと。",
     },
     recipe: recipeSchema,
+    adapted_from_recipe_id: {
+      type: T.STRING,
+      description: "recipe を新規生成するとき、参考にした既存DBレシピのID（UUID）。殿堂入りレシピをアレンジするときに記録する。",
+    },
   },
   required: ["date", "meal_type", "servings"],
 };

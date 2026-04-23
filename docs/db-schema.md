@@ -146,6 +146,10 @@ erDiagram
 | prep_time_min | int | | 下ごしらえ時間 |
 | cook_time_min | int | | 加熱時間 |
 | source | text | NOT NULL, default 'manual' | `ai` / `manual` / `imported` |
+| source_recipe_id | uuid | FK → recipes(id) ON DELETE SET NULL, NULLABLE | AI が殿堂入りレシピをアレンジした場合、参考元のID |
+| is_kit | boolean | NOT NULL, default false | ヘルシオデリ等の宅配キット前提フラグ。AI候補から除外 |
+| is_favorite | boolean | NOT NULL, default false | 殿堂入り（手動 or avg★4.5 & count≥2） |
+| image_url | text | | レシピ画像 |
 | created_at | timestamptz | default now() | |
 
 ### 4. recipe_ingredients（材料）
@@ -329,6 +333,32 @@ CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON weekly_menus
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================
+-- Migration: Gemini生成優先化 (Phase D / 2026-04)
+-- ============================================================
+-- AI提案をDBレシピ選定型から Gemini 生成型へ格上げするにあたり、
+--  1. アレンジ元レシピの紐付け (source_recipe_id)
+--  2. 宅配キット系レシピの除外フラグ (is_kit)
+-- を追加する。既存環境では以下を Supabase SQL Editor で実行する。
+
+ALTER TABLE recipes
+  ADD COLUMN IF NOT EXISTS source_recipe_id uuid
+    REFERENCES recipes(id) ON DELETE SET NULL;
+
+ALTER TABLE recipes
+  ADD COLUMN IF NOT EXISTS is_kit boolean NOT NULL DEFAULT false;
+
+-- バックフィル: 材料 3 件未満 + source='imported' のレシピを
+-- 宅配キット前提としてフラグ付けする（ヘルシオデリ系を AI 候補から除外）
+UPDATE recipes SET is_kit = true
+WHERE source = 'imported'
+  AND id IN (
+    SELECT r.id FROM recipes r
+    LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+    GROUP BY r.id
+    HAVING COUNT(ri.id) < 3
+  );
 ```
 
 ## RLSポリシー

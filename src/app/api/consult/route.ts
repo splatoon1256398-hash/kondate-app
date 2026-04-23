@@ -19,6 +19,7 @@ import {
   buildRatingPreferenceSection,
   isLowRated,
 } from "@/lib/utils/rating-map";
+import { filterPromptRecipes } from "@/lib/utils/recipe-filter";
 
 // Gemini 2.5 Flash thinking + FC を含めても余裕を見て
 export const maxDuration = 90;
@@ -215,6 +216,7 @@ async function buildSystemPrompt(
     { data: pantry },
     { data: recentSlots },
     { data: availableRecipes },
+    { data: ingCounts },
     { data: targetSlot },
   ] = await Promise.all([
     supabase
@@ -222,16 +224,17 @@ async function buildSystemPrompt(
       .select("name, amount, unit, is_staple, category, expiry_date, purchased_at"),
     supabase
       .from("meal_slots")
-      .select("date, meal_type, recipes(title)")
+      .select("date, meal_type, recipe_id, recipes(title)")
       .gte("date", twoWeeksAgo)
       .eq("is_skipped", false)
       .not("recipe_id", "is", null)
       .order("date", { ascending: false }),
     supabase
       .from("recipes")
-      .select("id, title, cook_method, cook_time_min, is_favorite")
+      .select("id, title, cook_method, cook_time_min, is_favorite, source")
       .order("created_at", { ascending: false })
       .limit(300),
+    supabase.from("recipe_ingredients").select("recipe_id"),
     supabase
       .from("meal_slots")
       .select("id, recipes(title)")
@@ -239,6 +242,15 @@ async function buildSystemPrompt(
       .eq("meal_type", targetMealType)
       .maybeSingle(),
   ]);
+
+  const ingCountMap = new Map<string, number>();
+  for (const row of (ingCounts || []) as { recipe_id: string }[]) {
+    ingCountMap.set(row.recipe_id, (ingCountMap.get(row.recipe_id) ?? 0) + 1);
+  }
+  const recentRecipeIds = new Set<string>();
+  for (const s of ((recentSlots as unknown as { recipe_id: string | null }[]) || [])) {
+    if (s.recipe_id) recentRecipeIds.add(s.recipe_id);
+  }
 
   const nonStaplePantry = (
     pantry || []
@@ -279,15 +291,23 @@ async function buildSystemPrompt(
     .filter(Boolean)
     .join("、");
 
-  const recipesList = (availableRecipes || [])
+  const filteredRecipes = filterPromptRecipes(
+    (availableRecipes || []) as {
+      id: string;
+      title: string;
+      cook_method: string;
+      cook_time_min: number | null;
+      is_favorite: boolean | null;
+      source: string | null;
+    }[],
+    ingCountMap,
+    ratingMap,
+    recentRecipeIds
+  );
+
+  const recipesList = filteredRecipes
     .map(
-      (r: {
-        id: string;
-        title: string;
-        cook_method: string;
-        cook_time_min: number | null;
-        is_favorite?: boolean;
-      }) =>
+      (r) =>
         `- [${r.id}] ${r.title}（${r.cook_method}${
           r.cook_time_min ? `, ${r.cook_time_min}分` : ""
         }）${formatRatingTag(ratingMap.get(r.id), r.is_favorite === true)}`
@@ -334,8 +354,8 @@ ${pantryText}
 ## 直近2週間で作ったもの（マンネリ回避）
 ${recentText || "（なし）"}
 
-## 利用可能なレシピDB（${(availableRecipes || []).length}件）
-${recipesList || "（DB空）"}
+## 利用可能なレシピDB（${filteredRecipes.length}件・キット系/低評価は除外済）
+${recipesList || "（候補なし）"}
 
 ## 応答スタイル
 - カジュアルで短めの日本語（1-3文）
@@ -343,17 +363,7 @@ ${recipesList || "（DB空）"}
 - 候補は2〜3個
 - reason は **「どの在庫食材を使えるか / 鮮度を回せるか」を必ず含めて** 具体的に1文
   例: 「鶏もも(残2日)使い切れる」「豚こま在庫ありで作れる、買い足し不要」`,
-    candidatesByIdMap: new Map(
-      (availableRecipes || []).map(
-        (r: {
-          id: string;
-          title: string;
-          cook_method: string;
-          cook_time_min: number | null;
-          is_favorite?: boolean;
-        }) => [r.id, r]
-      )
-    ),
+    candidatesByIdMap: new Map(filteredRecipes.map((r) => [r.id, r])),
     nonStaplePantry,
     ratingMap,
   };

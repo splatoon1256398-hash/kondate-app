@@ -43,6 +43,7 @@ const slotSchema = z.object({
   memo: z.string().optional(),
   recipe_id: z.string().uuid().optional(),
   recipe: recipeSchema.optional(),
+  adapted_from_recipe_id: z.string().uuid().optional(),
 });
 
 const saveWeeklyMenuArgsSchema = z.object({
@@ -136,19 +137,24 @@ export async function executeSaveWeeklyMenu(
       if (existing) {
         recipeId = existing.id;
       } else {
+        const insertPayload: Record<string, unknown> = {
+          title: slot.recipe.title,
+          description: slot.recipe.description ?? null,
+          servings_base: slot.recipe.servings_base,
+          cook_method: slot.recipe.cook_method,
+          hotcook_menu_number: slot.recipe.hotcook_menu_number ?? null,
+          hotcook_unit: slot.recipe.hotcook_unit ?? null,
+          prep_time_min: slot.recipe.prep_time_min ?? null,
+          cook_time_min: slot.recipe.cook_time_min ?? null,
+          source: "ai",
+        };
+        // source_recipe_id カラムが追加済みの環境でのみ書き込む
+        if (slot.adapted_from_recipe_id) {
+          insertPayload.source_recipe_id = slot.adapted_from_recipe_id;
+        }
         const { data: newRecipe, error: recipeError } = await supabase
           .from("recipes")
-          .insert({
-            title: slot.recipe.title,
-            description: slot.recipe.description ?? null,
-            servings_base: slot.recipe.servings_base,
-            cook_method: slot.recipe.cook_method,
-            hotcook_menu_number: slot.recipe.hotcook_menu_number ?? null,
-            hotcook_unit: slot.recipe.hotcook_unit ?? null,
-            prep_time_min: slot.recipe.prep_time_min ?? null,
-            cook_time_min: slot.recipe.cook_time_min ?? null,
-            source: "ai",
-          })
+          .insert(insertPayload)
           .select("id")
           .single();
 

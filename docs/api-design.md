@@ -459,6 +459,19 @@ type ChatRequest = {
   context?: {
     week_start_date?: string;
     weekly_menu_id?: string;
+    hotcook_model?: string; // 例: KN-HW24H (未指定なら KN-HW24H)
+  };
+};
+
+// `/api/consult` は更に recipe_context を受ける:
+type ConsultRequest = {
+  messages: { role: "user" | "assistant"; content: string }[];
+  context?: {
+    target_date?: string;
+    target_meal_type?: "lunch" | "dinner";
+    hotcook_model?: string;
+    /** 指定すると「レシピ調整モード」起動 (FC なし、会話のみ) */
+    recipe_context?: { recipe_id: string; servings: number };
   };
 };
 

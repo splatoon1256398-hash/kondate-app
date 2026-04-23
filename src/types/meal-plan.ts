@@ -61,6 +61,7 @@ export type ChatRequest = {
   context?: {
     week_start_date?: string;
     weekly_menu_id?: string;
+    hotcook_model?: string;
   };
 };
 

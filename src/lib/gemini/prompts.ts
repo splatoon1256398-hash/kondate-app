@@ -10,11 +10,13 @@ import {
   buildRatingPreferenceSection,
   type RatingSummary,
 } from "@/lib/utils/rating-map";
+import { filterPromptRecipes } from "@/lib/utils/recipe-filter";
 
 export type MealPlanContext = {
   today: string;
   weekStartDate: string;
   weekEndDate: string;
+  hotcookModel: string;
   recentMeals: {
     date: string;
     meal_type: "lunch" | "dinner";
@@ -37,6 +39,7 @@ export type MealPlanContext = {
     title: string;
     cook_method: string;
     cook_time_min: number | null;
+    is_favorite?: boolean;
   }[];
 };
 
@@ -51,6 +54,9 @@ export function buildSystemPrompt(context: MealPlanContext): string {
 
   return `あなたは在庫ファーストなホットクック献立アドバイザーです。
 
+## 🔴 ユーザーのホットクック機種
+${context.hotcookModel}（容量・まぜ技の有無を踏まえたレシピを組むこと）
+
 ## 基本ルール
 - ホットクックで作れるレシピを優先提案する
 - **在庫を使い切ることが最優先**（買い物は週1まとめ、食材を腐らせない）
@@ -61,19 +67,25 @@ export function buildSystemPrompt(context: MealPlanContext): string {
 - ユーザーがチャットで「確定」「これでOK」等と明示した場合のみ save_weekly_menu を呼ぶ（通常はカード側で処理される）
 - save_weekly_menu を呼ぶと買い物リストは自動生成される。別途 generate_shopping_list を呼ぶ必要はない
 
-## 🔴 重要: レシピ選択ルール（ハイブリッド方式）
+## 🔴 重要: レシピ選択ルール（Gemini生成優先 + DB参考ハイブリッド）
 以下の優先順位で献立を組む：
 
-1. **最優先: 既存DBレシピを使用**（写真・材料・手順が既にある）
-   → slotに \`recipe_id\` を返す（\`recipe\` フィールドは空）
-   → 下記「利用可能なレシピDB」から選ぶこと
-
-2. **次善: 新規レシピを生成**（DBに合うものがない場合のみ）
+1. **最優先: オリジナルレシピを生成する**
    → slotに \`recipe\` オブジェクトを返す（title, ingredients, steps 必須）
-   → 調味料の分量も必ず含める（醤油 大さじ1 等）
-   → 「前日の残り丼」「こんにゃく炒め」のような手抜きレシピは禁止
+   → 機種・人数・在庫・要望を踏まえた**具体的な配合**で書く
+   → 下記「過去に高評価だった参考レシピ」があればアレンジ元として活用し、
+     その場合は \`adapted_from_recipe_id\` に参考にした recipe_id を記録する
 
-**必ず、DBレシピを優先して選ぶこと。新規生成は最後の手段。**
+2. **次善: DB レシピをそのまま流用**（殿堂入りや高評価で、変更不要な場合）
+   → slotに \`recipe_id\` を返す（\`recipe\` フィールドは空）
+   → 下記「過去に高評価だった参考レシピ」リストからのみ選ぶこと
+
+## 🔴 レシピ生成時のルール（厳守）
+- **具体数量を必ず書く**: 醤油 大さじ1、塩 小さじ1/2、鶏もも肉 300g など（「適量」の乱発禁止）
+- **ホットクック機種依存の手順を書く**: ${context.hotcookModel} の容量とまぜ技の有無に合わせる
+- **制約 (乳不使用・減塩・辛さ等) があれば**: 代替材料と理由を description に 1-2 文で明記
+- **宅配キット前提の材料は禁止**: 「専用ソース」「ミールキット」「ヘルシオデリ」等の汎用性のない素材名は使わず、市販素材で組み直すこと
+- 「前日の残り丼」「こんにゃく炒め」のような手抜きレシピも禁止
 
 ${
   urgentSection
@@ -101,14 +113,14 @@ ${stapleItems.length > 0
     : "（未登録）"}
 
 ${ratingSection || ""}
-## 📋 利用可能なレシピDB（${context.availableRecipes.length}件）
-以下のレシピはDBに登録済み。**recipe_id で参照して使うこと**：
+## 📋 過去に高評価だった参考レシピ（${context.availableRecipes.length}件）
+以下は殿堂入り・高評価 (★3.5+) ・直近使用のDBレシピ。**生成の参考にしたり、変更不要ならそのまま recipe_id で流用してよい**（キット系は除外済）：
 
 ${context.availableRecipes.length > 0
     ? context.availableRecipes
         .map((r) => `- [${r.id}] ${r.title}（${r.cook_method}${r.cook_time_min ? `, ${r.cook_time_min}分` : ""}）${formatRatingTag(ratingMap.get(r.id), favIds.has(r.id))}`)
         .join("\n")
-    : "（DB空）"}
+    : "（参考レシピなし、自由に生成してよい）"}
 
 ## 提案のコツ
 - 同じ食材を複数の献立で活用する（例：大根→煮物＋味噌汁）
@@ -154,9 +166,12 @@ function getNextSunday(dateStr: string): string {
   return formatDate(d);
 }
 
+export const DEFAULT_HOTCOOK_MODEL = "KN-HW24H";
+
 export async function buildContext(
   supabase: SupabaseClient,
-  overrideWeekStart?: string
+  overrideWeekStart?: string,
+  hotcookModel: string = DEFAULT_HOTCOOK_MODEL
 ): Promise<MealPlanContext> {
   const today = formatDate(new Date());
   const twoWeeksAgo = formatDate(new Date(Date.now() - 14 * 86400000));
@@ -166,11 +181,12 @@ export async function buildContext(
     { data: favorites },
     { data: pantry },
     { data: allRecipes },
+    { data: ingCounts },
     ratingMap,
   ] = await Promise.all([
     supabase
       .from("meal_slots")
-      .select("date, meal_type, recipes(title)")
+      .select("date, meal_type, recipe_id, recipes(title)")
       .gte("date", twoWeeksAgo)
       .eq("is_skipped", false)
       .not("recipe_id", "is", null)
@@ -186,14 +202,41 @@ export async function buildContext(
       .order("category"),
     supabase
       .from("recipes")
-      .select("id, title, cook_method, cook_time_min")
+      .select("id, title, cook_method, cook_time_min, source, is_favorite")
       .order("created_at", { ascending: false })
       .limit(300),
+    supabase.from("recipe_ingredients").select("recipe_id"),
     getRecipeRatingsMap(supabase),
   ]);
 
   const favoriteIds = new Set(
     (favorites || []).map((r: { id: string }) => r.id)
+  );
+
+  // 材料数マップ (キット系判定に使う)
+  const ingCountMap = new Map<string, number>();
+  for (const row of (ingCounts || []) as { recipe_id: string }[]) {
+    ingCountMap.set(row.recipe_id, (ingCountMap.get(row.recipe_id) ?? 0) + 1);
+  }
+
+  // 直近使用レシピID
+  const recentRecipeIds = new Set<string>();
+  for (const s of ((recentSlots as unknown as { recipe_id: string | null }[]) || [])) {
+    if (s.recipe_id) recentRecipeIds.add(s.recipe_id);
+  }
+
+  const filteredRecipes = filterPromptRecipes(
+    (allRecipes || []) as {
+      id: string;
+      title: string;
+      cook_method: string;
+      cook_time_min: number | null;
+      source: string | null;
+      is_favorite: boolean | null;
+    }[],
+    ingCountMap,
+    ratingMap,
+    recentRecipeIds
   );
 
   return {
@@ -206,6 +249,7 @@ export async function buildContext(
           return formatDate(d);
         })()
       : getNextSunday(today),
+    hotcookModel,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recentMeals: (recentSlots || []).map((s: any) => ({
       date: s.date as string,
@@ -238,19 +282,13 @@ export async function buildContext(
         category: i.category ?? null,
       })
     ),
-    availableRecipes: (allRecipes || []).map(
-      (r: {
-        id: string;
-        title: string;
-        cook_method: string;
-        cook_time_min: number | null;
-      }) => ({
-        id: r.id,
-        title: r.title,
-        cook_method: r.cook_method,
-        cook_time_min: r.cook_time_min,
-      })
-    ),
+    availableRecipes: filteredRecipes.map((r) => ({
+      id: r.id,
+      title: r.title as string,
+      cook_method: r.cook_method as string,
+      cook_time_min: r.cook_time_min ?? null,
+      is_favorite: r.is_favorite === true,
+    })),
     ratingMap,
     favoriteIds,
   };
