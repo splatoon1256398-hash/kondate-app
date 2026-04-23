@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChefHat, Clock, Flame, ChevronLeft, Play } from "lucide-react";
+import { ChefHat, Clock, Flame, ChevronLeft, Play, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail as RecipeDetailType } from "@/types/recipe";
@@ -125,12 +125,21 @@ export default function RecipeDetail({ recipeId, servings, slotId }: Props) {
         </div>
       )}
 
-      {/* Servings */}
-      <div className="mx-4 mt-4 text-[13px] text-label-tertiary">
-        {servings ?? recipe.servings_base}人分
-        {servings && servings !== recipe.servings_base && (
-          <span className="ml-1">(元: {recipe.servings_base}人分)</span>
-        )}
+      {/* Servings + Geminiに相談 */}
+      <div className="mx-4 mt-4 flex items-center justify-between gap-2">
+        <div className="text-[13px] text-label-tertiary">
+          {servings ?? recipe.servings_base}人分
+          {servings && servings !== recipe.servings_base && (
+            <span className="ml-1">(元: {recipe.servings_base}人分)</span>
+          )}
+        </div>
+        <Link
+          href={`/consult?recipe_id=${recipeId}&servings=${servings ?? recipe.servings_base}`}
+          className="flex items-center gap-1 rounded-full bg-purple/10 px-3 py-1.5 text-[13px] font-semibold text-purple active:opacity-60"
+        >
+          <Sparkles size={12} strokeWidth={2} />
+          Geminiに相談
+        </Link>
       </div>
 
       {/* Ingredients */}

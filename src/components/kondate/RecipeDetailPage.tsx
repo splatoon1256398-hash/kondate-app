@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChefHat, Clock, Flame, ChevronLeft, Pencil, Trash2, Heart, Play } from "lucide-react";
+import { ChefHat, Clock, Flame, ChevronLeft, Pencil, Trash2, Heart, Play, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecipeDetail } from "@/types/recipe";
@@ -202,8 +202,17 @@ export default function RecipeDetailPage({ recipeId }: Props) {
         </div>
       )}
 
-      {/* Servings */}
-      <div className="mx-4 mt-4 text-[13px] text-label-tertiary">{recipe.servings_base}人分</div>
+      {/* Servings + Geminiに相談 */}
+      <div className="mx-4 mt-4 flex items-center justify-between gap-2">
+        <div className="text-[13px] text-label-tertiary">{recipe.servings_base}人分</div>
+        <Link
+          href={`/consult?recipe_id=${recipeId}&servings=${recipe.servings_base}`}
+          className="flex items-center gap-1 rounded-full bg-purple/10 px-3 py-1.5 text-[13px] font-semibold text-purple active:opacity-60"
+        >
+          <Sparkles size={12} strokeWidth={2} />
+          Geminiに相談
+        </Link>
+      </div>
 
       {/* Ingredients */}
       <section className="mt-2 px-4">

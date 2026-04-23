@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Send,
   Sparkles,
@@ -14,6 +15,7 @@ import {
   AlertCircle,
   Heart,
   Star,
+  X,
 } from "lucide-react";
 import AiChatBubble from "./AiChatBubble";
 import type { ApiResponse } from "@/types/common";
@@ -22,6 +24,7 @@ import type {
   ConsultSSEEvent,
 } from "@/app/api/consult/route";
 import type { InventoryMatch } from "@/lib/utils/inventory-match";
+import { useHotcookModelPreference } from "@/lib/preferences/hotcook-model";
 
 type ConsultMessage = {
   role: "user" | "assistant";
@@ -61,8 +64,30 @@ function formatTomorrowIso(): string {
   return `${y}-${m}-${day}`;
 }
 
-export default function ConsultChat() {
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+type InitialRecipeContext = {
+  recipe_id: string;
+  servings: number;
+  title: string;
+};
+
+type ConsultChatProps = {
+  initialRecipeContext?: InitialRecipeContext;
+};
+
+export default function ConsultChat({ initialRecipeContext }: ConsultChatProps = {}) {
+  const router = useRouter();
+  const [hotcookModel] = useHotcookModelPreference();
+  const isAdjustmentMode = initialRecipeContext != null;
+  const initialMessages: DisplayMessage[] = initialRecipeContext
+    ? [
+        {
+          id: "adjustment-intro",
+          role: "assistant",
+          content: `『${initialRecipeContext.title}』について調整できるよ。生クリームなし・辛さ調整・代替材料・もっと時短など、気軽に相談してね。`,
+        },
+      ]
+    : [];
+  const [messages, setMessages] = useState<DisplayMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [targetDate, setTargetDate] = useState<"today" | "tomorrow">("today");
@@ -117,6 +142,15 @@ export default function ConsultChat() {
             context: {
               target_date: targetDateIso,
               target_meal_type: targetMealType,
+              hotcook_model: hotcookModel,
+              ...(initialRecipeContext
+                ? {
+                    recipe_context: {
+                      recipe_id: initialRecipeContext.recipe_id,
+                      servings: initialRecipeContext.servings,
+                    },
+                  }
+                : {}),
             },
           }),
           signal: AbortSignal.timeout(90_000),
@@ -209,7 +243,7 @@ export default function ConsultChat() {
         scrollToBottom();
       }
     },
-    [targetDateIso, targetMealType, scrollToBottom]
+    [targetDateIso, targetMealType, scrollToBottom, hotcookModel, initialRecipeContext]
   );
 
   const handleSubmit = useCallback(
@@ -307,56 +341,84 @@ export default function ConsultChat() {
     <div className="flex h-[calc(100dvh-60px-env(safe-area-inset-bottom))] flex-col bg-bg-grouped">
       {/* Large title + target selector */}
       <div className="px-4 pt-3 pb-3">
-        <h1 className="text-[28px] font-bold leading-[34px] text-label">相談</h1>
-        <p className="text-[13px] text-label-secondary">
-          {dayLabel}の{mealLabel}、何作る？
-        </p>
+        {isAdjustmentMode ? (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-[22px] font-bold leading-[28px] text-label">
+                  レシピ調整
+                </h1>
+                <p className="line-clamp-1 text-[13px] text-label-secondary">
+                  『{initialRecipeContext!.title}』
+                  <span className="ml-1 text-label-tertiary">
+                    {initialRecipeContext!.servings}人分
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push("/consult")}
+                className="flex h-8 items-center gap-1 rounded-full bg-fill-tertiary px-3 text-[12px] font-semibold text-label-secondary active:opacity-60"
+              >
+                <X size={12} strokeWidth={2.5} />
+                通常モード
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-[28px] font-bold leading-[34px] text-label">相談</h1>
+            <p className="text-[13px] text-label-secondary">
+              {dayLabel}の{mealLabel}、何作る？
+            </p>
 
-        {/* Target selector: day + meal type */}
-        <div className="mt-3 flex gap-2">
-          <div className="flex flex-1 gap-1 rounded-[9px] bg-fill-tertiary p-[3px]">
-            {(
-              [
-                { key: "today", label: "今日" },
-                { key: "tomorrow", label: "明日" },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTargetDate(key)}
-                className={`flex flex-1 items-center justify-center rounded-[7px] py-1.5 text-[13px] font-semibold transition-colors ${
-                  targetDate === key
-                    ? "bg-bg-secondary text-label shadow-sm"
-                    : "text-label-secondary"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-1 gap-1 rounded-[9px] bg-fill-tertiary p-[3px]">
-            {(
-              [
-                { key: "dinner", label: "夜" },
-                { key: "lunch", label: "昼" },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTargetMealType(key)}
-                className={`flex flex-1 items-center justify-center rounded-[7px] py-1.5 text-[13px] font-semibold transition-colors ${
-                  targetMealType === key
-                    ? "bg-bg-secondary text-label shadow-sm"
-                    : "text-label-secondary"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+            {/* Target selector: day + meal type */}
+            <div className="mt-3 flex gap-2">
+              <div className="flex flex-1 gap-1 rounded-[9px] bg-fill-tertiary p-[3px]">
+                {(
+                  [
+                    { key: "today", label: "今日" },
+                    { key: "tomorrow", label: "明日" },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTargetDate(key)}
+                    className={`flex flex-1 items-center justify-center rounded-[7px] py-1.5 text-[13px] font-semibold transition-colors ${
+                      targetDate === key
+                        ? "bg-bg-secondary text-label shadow-sm"
+                        : "text-label-secondary"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-1 gap-1 rounded-[9px] bg-fill-tertiary p-[3px]">
+                {(
+                  [
+                    { key: "dinner", label: "夜" },
+                    { key: "lunch", label: "昼" },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTargetMealType(key)}
+                    className={`flex flex-1 items-center justify-center rounded-[7px] py-1.5 text-[13px] font-semibold transition-colors ${
+                      targetMealType === key
+                        ? "bg-bg-secondary text-label shadow-sm"
+                        : "text-label-secondary"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Messages or empty state */}
@@ -494,7 +556,11 @@ export default function ConsultChat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="気分や食材を入力…"
+            placeholder={
+              isAdjustmentMode
+                ? "例: 生クリームなしで作りたい"
+                : "気分や食材を入力…"
+            }
             disabled={streaming}
             className="flex-1 rounded-full bg-fill-tertiary px-4 py-2 text-[17px] text-label placeholder:text-label-tertiary focus:outline-none disabled:opacity-50"
           />

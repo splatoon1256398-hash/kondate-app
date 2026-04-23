@@ -50,8 +50,117 @@ type ConsultRequest = {
   context?: {
     target_date?: string; // YYYY-MM-DD (default: today)
     target_meal_type?: "lunch" | "dinner"; // default: dinner
+    hotcook_model?: string; // 例: KN-HW24H
+    recipe_context?: {
+      recipe_id: string;
+      servings: number;
+    };
   };
 };
+
+type RecipeAdjustmentContext = {
+  title: string;
+  description: string | null;
+  cook_method: string;
+  hotcook_menu_number: string | null;
+  hotcook_unit: string | null;
+  prep_time_min: number | null;
+  cook_time_min: number | null;
+  servings_base: number;
+  servings: number;
+  ingredients: { name: string; amount: number | null; unit: string | null }[];
+  steps: { step_number: number; instruction: string; tip: string | null }[];
+};
+
+async function loadRecipeForAdjustment(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  recipeId: string,
+  servings: number
+): Promise<RecipeAdjustmentContext | null> {
+  const { data } = await supabase
+    .from("recipes")
+    .select(
+      `id, title, description, cook_method, hotcook_menu_number, hotcook_unit,
+       prep_time_min, cook_time_min, servings_base,
+       recipe_ingredients ( name, amount, unit, sort_order ),
+       recipe_steps ( step_number, instruction, tip )`
+    )
+    .eq("id", recipeId)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const base = (data.servings_base as number) || 1;
+  const ratio = base > 0 ? servings / base : 1;
+
+  const ingredients = ((data.recipe_ingredients || []) as {
+    name: string;
+    amount: number | null;
+    unit: string | null;
+    sort_order: number;
+  }[])
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((i) => ({
+      name: i.name,
+      amount: i.amount != null ? i.amount * ratio : null,
+      unit: i.unit,
+    }));
+
+  const steps = ((data.recipe_steps || []) as {
+    step_number: number;
+    instruction: string;
+    tip: string | null;
+  }[])
+    .slice()
+    .sort((a, b) => a.step_number - b.step_number)
+    .map((s) => ({ step_number: s.step_number, instruction: s.instruction, tip: s.tip }));
+
+  return {
+    title: data.title as string,
+    description: (data.description as string | null) ?? null,
+    cook_method: (data.cook_method as string) ?? "other",
+    hotcook_menu_number: (data.hotcook_menu_number as string | null) ?? null,
+    hotcook_unit: (data.hotcook_unit as string | null) ?? null,
+    prep_time_min: (data.prep_time_min as number | null) ?? null,
+    cook_time_min: (data.cook_time_min as number | null) ?? null,
+    servings_base: base,
+    servings,
+    ingredients,
+    steps,
+  };
+}
+
+function formatAdjustmentRecipe(r: RecipeAdjustmentContext): string {
+  const ingredientsText = r.ingredients
+    .map((i) => {
+      const amount = i.amount != null ? i.amount.toFixed(2).replace(/\.?0+$/, "") : "";
+      return `- ${i.name}${amount ? ` ${amount}` : ""}${i.unit ? ` ${i.unit}` : ""}`;
+    })
+    .join("\n");
+  const stepsText = r.steps
+    .map(
+      (s) =>
+        `${s.step_number}. ${s.instruction}${s.tip ? `\n   (Tip: ${s.tip})` : ""}`
+    )
+    .join("\n");
+  const hot =
+    r.cook_method === "hotcook"
+      ? `ホットクック${r.hotcook_menu_number ? ` No.${r.hotcook_menu_number}` : ""}${
+          r.hotcook_unit ? ` / まぜ技: ${r.hotcook_unit}` : ""
+        }${r.cook_time_min ? ` / 加熱: ${r.cook_time_min}分` : ""}`
+      : r.cook_method;
+  return `### 対象レシピ
+- タイトル: ${r.title}
+- 調理方法: ${hot}
+- 人数設定: ${r.servings}人分（元レシピ: ${r.servings_base}人分）
+${r.description ? `- 説明: ${r.description}\n` : ""}
+### 材料（${r.servings}人分換算）
+${ingredientsText || "（材料なし）"}
+
+### 手順
+${stepsText || "（手順なし）"}`;
+}
 
 const T: Record<string, Type> = {
   STRING: "STRING" as Type,
@@ -98,7 +207,8 @@ function convertMessages(messages: ConsultMessage[]): Content[] {
 async function buildSystemPrompt(
   supabase: ReturnType<typeof createSupabaseServerClient>,
   targetDate: string,
-  targetMealType: "lunch" | "dinner"
+  targetMealType: "lunch" | "dinner",
+  hotcookModel: string
 ) {
   const twoWeeksAgo = formatDate(new Date(Date.now() - 14 * 86400000));
   const [
@@ -193,6 +303,9 @@ async function buildSystemPrompt(
   return {
     systemPrompt: `あなたは在庫ファーストな献立アドバイザーです。ユーザーは「今日/明日何作ろう」とカジュアルに相談してきます。
 
+## 🔴 ユーザーのホットクック機種
+${hotcookModel}
+
 ## 🔴 提案ルール（優先度順・厳守）
 1. 提案するときは **suggest_dinner_candidates** ツールを必ず呼ぶ
 2. レシピは必ず下の「利用可能なレシピDB」から選ぶ（recipe_id指定、新規生成禁止）
@@ -246,6 +359,33 @@ ${recipesList || "（DB空）"}
   };
 }
 
+function buildAdjustmentSystemPrompt(
+  recipe: RecipeAdjustmentContext,
+  hotcookModel: string
+): string {
+  return `あなたは在庫ファーストなホットクック献立アドバイザー、かつレシピ調整のプロです。
+ユーザーは今「特定のレシピを、自分の都合に合わせて調整したい」と相談に来ています。
+
+## 🔴 ユーザーのホットクック機種
+${hotcookModel}（容量・まぜ技の有無を踏まえて回答する）
+
+## モード: レシピ調整モード
+- 候補レシピを新たに提案するモードではない。**suggest_dinner_candidates は呼ばない**
+- 下記「対象レシピ」について、ユーザーの要望に合わせて調整・代替材料・手順の補足・Tipsを会話で返す
+
+${formatAdjustmentRecipe(recipe)}
+
+## 応答スタイル（厳守）
+- カジュアルで親しみやすい日本語、見出し＋箇条書きで読みやすく
+- 「生クリームなしで」「乳不使用で」「もっと辛く」のような制約・要望があれば：
+  - **代替材料**を具体数量で提示（例: 生クリーム 100ml → 牛乳 100ml + 粉チーズ 大さじ2）
+  - **なぜその代替が妥当か**の理由も1文で添える
+- 調味料は必ず具体数量（大さじ○, 小さじ○, g 等）で書く
+- ${hotcookModel} の容量・まぜ技に合わせた手順を書く
+- 宅配キット前提の材料名（「専用ソース」「ミールキット」等）は使わず、市販素材で組み直す
+- 追加質問歓迎（例: 「もっと時短したい？」「お供は？」と会話を広げる）`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: ConsultRequest = await request.json();
@@ -260,12 +400,34 @@ export async function POST(request: NextRequest) {
 
     const targetDate = reqContext?.target_date || formatDate(new Date());
     const targetMealType = reqContext?.target_meal_type || "dinner";
+    const hotcookModel = reqContext?.hotcook_model || "KN-HW24H";
+    const recipeContextReq = reqContext?.recipe_context;
 
     const supabase = createSupabaseServerClient();
     const gemini = getGeminiClient();
 
-    const { systemPrompt, candidatesByIdMap, nonStaplePantry, ratingMap } =
-      await buildSystemPrompt(supabase, targetDate, targetMealType);
+    // 調整モード: レシピを読み込んで専用プロンプトを組む
+    let adjustmentContext: RecipeAdjustmentContext | null = null;
+    if (recipeContextReq?.recipe_id) {
+      adjustmentContext = await loadRecipeForAdjustment(
+        supabase,
+        recipeContextReq.recipe_id,
+        recipeContextReq.servings > 0 ? recipeContextReq.servings : 2
+      );
+    }
+
+    const isAdjustmentMode = adjustmentContext !== null;
+
+    const baseCtx = isAdjustmentMode
+      ? null
+      : await buildSystemPrompt(supabase, targetDate, targetMealType, hotcookModel);
+
+    const systemPrompt = isAdjustmentMode
+      ? buildAdjustmentSystemPrompt(adjustmentContext!, hotcookModel)
+      : baseCtx!.systemPrompt;
+    const candidatesByIdMap = baseCtx?.candidatesByIdMap ?? new Map();
+    const nonStaplePantry = baseCtx?.nonStaplePantry ?? [];
+    const ratingMap = baseCtx?.ratingMap ?? new Map();
 
     let closed = false;
     let aborted = false;
@@ -298,7 +460,10 @@ export async function POST(request: NextRequest) {
           const contents = convertMessages(messages);
           const geminiConfig = {
             systemInstruction: systemPrompt,
-            tools: [{ functionDeclarations: [suggestFunction] }],
+            // 調整モードでは候補提案FCを登録しない（会話テキストのみ）
+            ...(isAdjustmentMode
+              ? {}
+              : { tools: [{ functionDeclarations: [suggestFunction] }] }),
             thinkingConfig: { thinkingBudget: 1024 },
           };
 
